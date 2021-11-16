@@ -1,0 +1,17 @@
+{
+  "name": "array_operation",
+  "revision": "0.0.1",
+  "operations": {
+    "give_array": {
+      "parameters": {
+        "length": { "type": "integer" }
+      },
+      "response": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

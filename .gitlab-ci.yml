@@ -1,0 +1,66 @@
+stages:
+  - test36
+  - test37
+  - test38 
+  - test39
+  - build
+  - release
+variables:
+  FILE_VERSION: 0.0.12.${CI_JOB_ID}
+  MQTT_BROKER_URL: 192.168.100.3
+  MQTT_BROKER_PORT: 1883
+test36:
+  stage: test36
+  image: python:3.6-alpine
+  before_script:
+    - pip install tox
+  script:
+    - tox -e py36
+test37:
+  stage: test37
+  image: python:3.7-alpine
+  before_script:
+    - pip install tox
+  script:
+    - tox -e py37
+test38:
+  stage: test38
+  image: python:3.8-alpine
+  before_script:
+    - pip install tox
+  script:
+    - tox -e py38
+test39:
+  stage: test39
+  image: python:3.9-alpine
+  before_script:
+    - pip install tox
+  script:
+    - tox -e py39
+
+build:
+  stage: build
+  image: python:3.7-alpine
+  script:
+    - python setup.py sdist bdist_wheel
+  artifacts:
+    paths:
+      - dist
+
+release:
+  stage: release
+  image: ubuntu
+  only:
+    - "master"
+  before_script:
+    - "which ssh-agent || ( apt-get update -y && apt-get install openssh-client git -y )"
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -p 2222 arena2036-backend.saz.bosch-si.com >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - export REPO_FOLDER=/srv/pip-pkgs/${CI_PROJECT_NAME}
+    - ssh -p 2222 dockeradmin@arena2036-backend.saz.bosch-si.com "if [ ! -d \"${REPO_FOLDER}\" ]; then mkdir ${REPO_FOLDER}; fi"
+    - scp -P 2222 dist/* dockeradmin@arena2036-backend.saz.bosch-si.com:$REPO_FOLDER

@@ -1,0 +1,7 @@
+{
+  "name": "simple-bool",
+  "revision": "0.0.1",
+  "properties": {
+    "switch": { "type": "boolean" }
+  }
+}

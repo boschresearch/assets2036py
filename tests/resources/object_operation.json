@@ -1,0 +1,25 @@
+{
+  "name": "object_operation",
+  "revision": "0.0.1",
+  "operations": {
+    "splitstring": {
+      "parameters": {
+        "a": {
+          "type": "string"
+        }
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "firstletter": {
+            "type": "string"
+          },
+          "lastletter": {
+            "type": "string"
+          }
+        },
+        "required": ["firstletter", "lastletter"]
+      }
+    }
+  }
+}

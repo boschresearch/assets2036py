@@ -1,0 +1,40 @@
+{
+  "name": "all_properties",
+  "revision": "0.0.1",
+  "properties": {
+    "a_switch": { "type": "boolean" },
+    "a_float": { "type": "number" },
+    "an_int": { "type": "integer" },
+    "a_text": { "type": "string" },
+    "an_object": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": ["x", "y"]
+    },
+    "an_int_object": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "required": ["x", "y"]
+    },
+    "a_list": {
+      "type": "array",
+      "items": {
+        "oneOf": [{ "type": "number" }, { "type": "string" }]
+      }
+    }
+  }
+}

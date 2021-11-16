@@ -1,0 +1,7 @@
+{
+  "name": "simpleint",
+  "revision": "0.0.1",
+  "properties": {
+    "num": { "type": "integer" }
+  }
+}

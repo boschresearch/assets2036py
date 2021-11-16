@@ -1,0 +1,25 @@
+{
+  "name": "simple_operation",
+  "revision": "0.0.1",
+  "operations": {
+    "do_it": {},
+    "addnumbers": {
+      "parameters": {
+        "a": { "type": "integer" },
+        "b": { "type": "integer" }
+      },
+      "response": {
+        "type": "integer"
+      }
+    },
+    "concat": {
+      "parameters": {
+        "a": { "type": "string" },
+        "b": { "type": "string" }
+      },
+      "response": {
+        "type": "string"
+      }
+    }
+  }
+}

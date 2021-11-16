@@ -1,0 +1,47 @@
+{
+  "name": "active_shuttle",
+  "revision": "0.0.1",
+  "properties": {
+    "pose": {
+      "type": "object",
+
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "joblist": { "type": "string" },
+        "current_job": { "type": "string" },
+        "state": { "type": "string" }
+      }
+    },
+    "waypoints": { "type": "string" }
+  },
+  "operations": {
+    "stop": {},
+    "auto": {},
+    "flush": {},
+    "add_waypoint": {
+      "parameters": {
+        "id": { "type": "string" },
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+    "bulk_add_waypoints": {
+      "parameters": {
+        "wp_list": { "type": "string" }
+      }
+    }
+  }
+}

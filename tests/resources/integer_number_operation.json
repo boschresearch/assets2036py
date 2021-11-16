@@ -1,0 +1,28 @@
+{
+  "name": "simple_operation",
+  "revision": "0.0.1",
+  "operations": {
+    "addnumbers": {
+      "parameters": {
+        "a": { "type": "number" },
+        "b": { "type": "number" }
+      },
+      "response": {
+        "type": "number"
+      }
+    },
+    "addintegers": {
+      "parameters": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "response": {
+        "type": "integer"
+      }
+    }
+  }
+}

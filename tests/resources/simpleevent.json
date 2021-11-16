@@ -1,0 +1,28 @@
+{
+  "name": "simpleevent",
+  "revision": "0.0.1",
+  "events": {
+    "bool_happened": {
+      "parameters": { "bool_payload": { "type": "boolean" } }
+    },
+    "string_happened": {
+      "parameters": { "string_payload": { "type": "string" } }
+    },
+    "object_happened": {
+      "parameters": {
+        "object_payload": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          },
+          "required": ["x", "y"]
+        }
+      }
+    }
+  }
+}

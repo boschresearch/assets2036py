@@ -1,0 +1,30 @@
+{
+  "name": "multiparam",
+  "revision": "0.0.1",
+  "operations": {
+    "multiparam_1": {
+      "parameters": {
+        "first": { "type": "integer" },
+        "second": { "type": "string" },
+        "third": { "type": "object" }
+      },
+      "response": { "type": "array" }
+    },
+    "multiparam_2": {
+      "parameters": {
+        "first": { "type": "integer" },
+        "second": { "type": "string" },
+        "third": { "type": "object" }
+      },
+      "response": { "type": "array" }
+    },
+    "multiparam_3": {
+      "parameters": {
+        "first": { "type": "integer" },
+        "second": { "type": "string" },
+        "third": { "type": "object" }
+      },
+      "response": { "type": "array" }
+    }
+  }
+}

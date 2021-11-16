@@ -1,0 +1,11 @@
+.vscode
+assets2036py.egg-info
+assets2036py/__pycache__
+tests/__pycache__
+Pipfile.lock
+tests/resources/big_submodel.json
+tests/test_longtermrun.py
+html
+docs
+.tox
+.env

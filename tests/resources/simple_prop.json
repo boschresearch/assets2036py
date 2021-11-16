@@ -1,0 +1,9 @@
+{
+  "name": "simple_prop_json",
+  "revision": "0.0.1",
+  "properties": {
+    "my_property": {
+      "type": "integer"
+    }
+  }
+}

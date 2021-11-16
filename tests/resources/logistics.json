@@ -1,0 +1,18 @@
+{
+  "name": "logistics",
+  "revision": "0.0.1",
+  "properties": {
+    "pbl_delivery_finished": { "type": "string" },
+    "pickup_empty_klt_finished": { "type": "string" }
+  },
+  "operations": {
+    "pickup_empty_klt": {
+      "parameters": { "timestamp": { "type": "string" } },
+      "response": { "type": "string" }
+    },
+    "deliver_prepared_pbl": {
+      "parameters": { "timestamp": { "type": "string" } },
+      "response": { "type": "string" }
+    }
+  }
+}
