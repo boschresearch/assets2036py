@@ -32,6 +32,7 @@ setup(
     author_email='Daniel.Ewert@de.bosch.com',
     description='helper library to easily implement assets2036',
     long_description=long_description,
+    long_description_content_type='text/markdown',
     packages=find_packages(exclude=['contrib', 'docs', 'tests', 'examples']),
     install_requires=['jsonschema', 'paho-mqtt', "python-dateutil"],
     package_data={"assets2036py": ["resources/*.json"]}
