@@ -99,6 +99,11 @@ class TestAssetManager(TestCase):
         endpoints = mgr.query_assets("arena2036", "_endpoint")
         self.assertTrue(len(endpoints) > 0)
 
+    def test_query_all(self):
+        mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
+        assets = mgr.query_assets("+", "+")
+        self.assertTrue(len(assets) > 0)
+
     def test_create_asset_proxy(self):
         mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
         _asset = mgr.create_asset(

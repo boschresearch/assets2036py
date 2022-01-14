@@ -35,6 +35,18 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 
+def create_name_regexp(namespace, assetnname):
+    namespace_sanitized = namespace.replace("+", "\w+?")
+    assetname_sanitized = assetnname.replace("+", "\w+?")
+    return f"{namespace_sanitized}/{assetname_sanitized}/([A-Za-z0-9._-]*)/_meta"
+
+
+def create_submodel_regexp(namespace, submodelname):
+    namespace_sanitized = namespace.replace("+", "\w+?")
+    submodelname_sanitized = submodelname.replace("+", "\w+?")
+    return f"{namespace_sanitized}/([A-Za-z0-9._-]*)/{submodelname_sanitized}/_meta"
+
+
 class CommunicationClient(ABC):
 
     @abstractmethod
@@ -173,9 +185,12 @@ class MQTTClient(CommunicationClient):
             f"{namespace}/{name}/+/_meta", seconds)
         submodels = {}
         for topic, meta in msgs.items():
-            submodel_name = re.search(
-                f"{namespace}/{name}/([A-Za-z0-9_-]*)/_meta", topic)[1]
-
+            regexp = create_name_regexp(namespace, name)
+            match = re.search(
+                regexp, topic)
+            if not match:
+                continue
+            submodel_name = match[1]
             schema = json.loads(meta[0])
             submodels[submodel_name] = schema
         return submodels
@@ -184,12 +199,18 @@ class MQTTClient(CommunicationClient):
 
         asset_names = []
         for sm in submodel_names:
+
+            regexp = create_submodel_regexp(namespace, sm)
             msgs = self._get_msgs_for_n_secs(
                 f"{namespace}/+/{sm}/_meta", seconds)
             asset_names_for_sm = set()
             for topic in msgs:
+                match = re.search(regexp, topic)
+                if not match:
+                    continue
+                asset_name = match[1]
                 asset_names_for_sm.add(
-                    re.search(f"{namespace}/([A-Za-z0-9._-]*)/{sm}/_meta", topic)[1])
+                    asset_name)
             asset_names.append(asset_names_for_sm)
         if not asset_names:
             return set()
