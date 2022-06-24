@@ -32,7 +32,6 @@ from assets2036py import context
 
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 
 def create_name_regexp(namespace, assetnname):
