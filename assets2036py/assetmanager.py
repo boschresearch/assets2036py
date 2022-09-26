@@ -187,7 +187,7 @@ class AssetManager:
         self.client.join(timeout)
 
     # pylint: disable=keyword-arg-before-vararg
-    def query_assets(self, namespace=None, *submodel_names: str) -> list:
+    def query_assets(self, namespace=None, *submodel_names: str) -> set:
         """return a set of those assets that implement all the given submodels
 
         Args:
