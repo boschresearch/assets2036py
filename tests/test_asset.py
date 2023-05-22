@@ -18,8 +18,10 @@ import logging
 import time
 import os
 from unittest import TestCase
+from threading import Thread
 from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor
+
 from jsonschema import ValidationError
 from assets2036py import Asset, Mode, AssetManager
 from assets2036py.communication import MockClient
@@ -497,7 +499,7 @@ class TestAsset(TestCase):
             "eventer", res_url + "simpleevent.json", mode=Mode.CONSUMER)
 
         cb_counter = []
-        #pylint: disable=unused-argument
+        # pylint: disable=unused-argument
 
         def bool_cb_named(_ts, bool_payload):
             cb_counter.append(1)
@@ -662,3 +664,33 @@ class TestAsset(TestCase):
 
         res = sink.simple_operation.addnumbers(a=5, b=6)
         self.assertEqual(res, 11)
+
+    def test_asset_offline_exception(self):
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        mgr2 = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_2")
+        asset = mgr.create_asset("test_asset", res_url + "simple_prop.json")
+        callback_called = False
+
+        def disconnect_callback(*args):
+            nonlocal callback_called
+            callback_called = True
+            logger.debug("DISCONNECTED: %s", args)
+
+        def run_asset():
+            for i in range(5):
+                asset.simple_prop_json.my_property.value = i
+                time.sleep(0.5)
+            asset.disconnect()
+
+        Thread(target=run_asset, daemon=True).start()
+
+        asset_proxy = mgr2.create_asset_proxy(
+            "test_arena2036", "test_asset")
+        asset_proxy.on_disconnect(disconnect_callback)
+        for _ in range(20):
+            my_prop = asset_proxy.simple_prop_json.my_property.value
+            if callback_called:
+                break
+            time.sleep(0.5)
+
+        self.assertTrue(callback_called)

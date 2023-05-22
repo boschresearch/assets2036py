@@ -19,7 +19,7 @@ import os
 import logging
 from urllib.request import urlopen
 from threading import Thread, Event
-from assets2036py import Asset, Mode
+from assets2036py import Asset, Mode, ProxyAsset
 from assets2036py.exceptions import AssetNotFoundError, OperationTimeoutException
 from assets2036py.communication import CommunicationClient, MQTTClient
 from assets2036py.utilities import get_resource_path
@@ -27,7 +27,7 @@ from assets2036py.utilities import get_resource_path
 
 logger = logging.getLogger(__name__)
 
-#pylint: disable=line-too-long
+# pylint: disable=line-too-long
 
 
 class AssetManager:
@@ -199,7 +199,7 @@ class AssetManager:
 
         return self.client.query_asset_names(namespace, *submodel_names)
 
-    def create_asset_proxy(self, namespace: str, name: str) -> Asset:
+    def create_asset_proxy(self, namespace: str, name: str) -> ProxyAsset:
         """Returns the asset with the given name if found, raises AssetNotFoundError otherwise
 
         Args:
@@ -215,9 +215,9 @@ class AssetManager:
         submodels = self.client.query_submodels_for_asset(namespace, name)
         if not submodels:
             raise AssetNotFoundError
-        verified_submodels = self._get_submodel_schemata(submodels)
-        return Asset(name, namespace, *verified_submodels, mode=Mode.CONSUMER, communication_client=self.client,
-                     endpoint_name=self.endpoint_name)
+        # verified_submodels = self._get_submodel_schemata(submodels)
+        return ProxyAsset(name, namespace, *submodels.values(), mode=Mode.CONSUMER, communication_client=self.client,
+                          endpoint_name=self.endpoint_name)
 
     def _get_submodel_schemata(self, sub_models):
         # pylint: disable=protected-access,broad-except

@@ -25,7 +25,7 @@ from abc import ABC, abstractmethod
 from numbers import Number
 import jsonschema
 from assets2036py.exceptions import InvalidParameterException, NotWritableError
-from .utilities import sanitize
+from .utilities import sanitize, get_resource_path
 
 # pylint: disable=protected-access, line-too-long
 
@@ -272,6 +272,7 @@ class SubModel:
         self.parent = asset
         self.communication_client = asset.communication_client
         self.name = sanitize(submodel_definition["name"])
+        self._disconnect_callback = None
 
         if asset.access_mode == Mode.OWNER:
 
@@ -293,6 +294,28 @@ class SubModel:
                 self._create_callable_operations(submodel_definition)
             if "events" in submodel_definition:
                 self._create_subscribable_events(submodel_definition)
+
+    def _raise_offline_exception(self, online):
+        logger.debug("CALLBACK GOT %s", online)
+        if not online and self._disconnect_callback != None:
+            logger.debug("SEND DISCONNECT FOR %s", self.name)
+            self._disconnect_callback(self.name)
+
+    def on_disconnect(self, callback):
+        self._disconnect_callback = callback
+
+    def register_source(self, source_address):
+        if "/" in source_address:
+            namespace, source_asset = source_address.split("/")
+        else:
+            namespace = self.parent.namespace
+            source_asset = source_address
+        with open(get_resource_path("_endpoint.json")) as file:
+            endpoint_sm_definition = json.load(file)
+        self.endpoint_asset = Asset(source_asset, namespace,
+                                    endpoint_sm_definition, mode=Mode.CONSUMER, communication_client=self.communication_client, endpoint_name="")
+        self.endpoint_asset._endpoint.online.on_change(
+            self._raise_offline_exception)
 
     def delete(self):
         deletables = [getattr(self, prop) for prop in dir(
@@ -401,3 +424,24 @@ class Asset:
 
     def _get_topic(self):
         return f"{self.namespace}/{self.name}"
+
+
+class ProxyAsset(Asset):
+
+    def __init__(self, name: str, namespace: str, *meta_infos, mode=Mode.CONSUMER, communication_client, endpoint_name) -> None:
+        submodel_defs = []
+        sources = {}
+        for meta_info in meta_infos:
+            sm_def = meta_info["submodel_definition"]
+            submodel_defs.append(sm_def)
+            sources[sm_def["name"]] = meta_info["source"]
+
+        super().__init__(name, namespace, *submodel_defs, mode=mode,
+                         communication_client=communication_client, endpoint_name=endpoint_name)
+        for name, source in sources.items():
+            getattr(self, name).register_source(source)
+            # this is some hacky shit, we need some nicer refactoring here
+
+    def on_disconnect(self, callback):
+        for submodel in self.sub_model_names:
+            getattr(self, submodel).on_disconnect(callback)
