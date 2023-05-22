@@ -15,6 +15,7 @@
 
 import logging
 import time
+import os
 from os import path
 from urllib.request import pathname2url
 import paho.mqtt.client as mqtt
@@ -22,9 +23,10 @@ logger = logging.getLogger(__name__)
 
 res_path = path.abspath(path.dirname(__file__)) + "/resources/"
 res_url = "file:" + pathname2url(res_path)
+HOST = os.getenv("MQTT_BROKER_URL", "localhost")
 
 
-def get_msgs_for_n_secs(topic, seconds, host="192.168.100.3"):
+def get_msgs_for_n_secs(topic, seconds, host=HOST):
     msgs = []
 
     def _message_callback(_client, _userdata, message):
