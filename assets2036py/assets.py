@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+import time
 from enum import Enum
 from os import path
 import json
@@ -295,6 +296,21 @@ class SubModel:
             if "events" in submodel_definition:
                 self._create_subscribable_events(submodel_definition)
 
+    def is_online(self):
+        num_tries = 0
+        if self.name == "_endpoint":
+            online_prop = self.online
+        else:
+            online_prop = self.endpoint_asset._endpoint.online
+        while num_tries < 3:
+            online_state = online_prop.value
+            if online_state == None:
+                num_tries += 1
+                time.sleep(0.5)
+            else:
+                return online_state
+        return False
+
     def _raise_offline_exception(self, online):
         logger.debug("CALLBACK GOT %s", online)
         if not online and self._disconnect_callback != None:
@@ -439,8 +455,16 @@ class ProxyAsset(Asset):
         super().__init__(name, namespace, *submodel_defs, mode=mode,
                          communication_client=communication_client, endpoint_name=endpoint_name)
         for name, source in sources.items():
-            getattr(self, name).register_source(source)
-            # this is some hacky shit, we need some nicer refactoring here
+            if name != "_endpoint":
+                getattr(self, name).register_source(source)
+                # this is some hacky shit, we need some nicer refactoring here
+
+    @property
+    def is_online(self):
+        for submodel in self.sub_model_names:
+            if not getattr(self, submodel).is_online():
+                return False
+        return True
 
     def on_disconnect(self, callback):
         for submodel in self.sub_model_names:

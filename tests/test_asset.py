@@ -665,7 +665,7 @@ class TestAsset(TestCase):
         res = sink.simple_operation.addnumbers(a=5, b=6)
         self.assertEqual(res, 11)
 
-    def test_asset_offline_exception(self):
+    def test_asset_disconnect_callback(self):
         mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
         mgr2 = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_2")
         asset = mgr.create_asset("test_asset", res_url + "simple_prop.json")
@@ -694,3 +694,16 @@ class TestAsset(TestCase):
             time.sleep(0.5)
 
         self.assertTrue(callback_called)
+
+    def test_is_proxy_asset_online(self):
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        mgr2 = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_2")
+        asset = mgr.create_asset("test_asset", res_url + "simple_prop.json")
+        asset.simple_prop_json.my_property.value = 42
+
+        asset_proxy = mgr2.create_asset_proxy(
+            "test_arena2036", "test_asset")
+        self.assertTrue(asset_proxy.is_online)
+        asset.disconnect()
+        time.sleep(1)
+        self.assertFalse(asset_proxy.is_online)
