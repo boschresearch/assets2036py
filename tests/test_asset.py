@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 HOST = os.getenv("MQTT_BROKER_URL", "localhost")
 PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+# HINT: Add an .env file to the root of your project to set the environment variables
+
+
 # pylint: disable=protected-access
 
 
