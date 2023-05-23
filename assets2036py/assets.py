@@ -326,10 +326,14 @@ class SubModel:
         else:
             namespace = self.parent.namespace
             source_asset = source_address
-        with open(get_resource_path("_endpoint.json")) as file:
-            endpoint_sm_definition = json.load(file)
-        self.endpoint_asset = Asset(source_asset, namespace,
-                                    endpoint_sm_definition, mode=Mode.CONSUMER, communication_client=self.communication_client, endpoint_name="")
+        if source_asset == self.parent.name and namespace == self.parent.namespace:
+            # this asset is endpoint for itsself.
+            self.endpoint_asset = self.parent
+        else:
+            with open(get_resource_path("_endpoint.json")) as file:
+                endpoint_sm_definition = json.load(file)
+            self.endpoint_asset = Asset(source_asset, namespace,
+                                        endpoint_sm_definition, mode=Mode.CONSUMER, communication_client=self.communication_client, endpoint_name="")
         self.endpoint_asset._endpoint.online.on_change(
             self._raise_offline_exception)
 
