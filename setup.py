@@ -25,7 +25,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 setup(
     name='assets2036py',
     version='0.0.16',
-    url='https://github.com/boschresearch/assets2036-submodels',
+    url='https://github.com/boschresearch/assets2036spy',
     license='BIOS',
     author='Daniel Ewert (CR/APA3 G6/BD-BBI)',
     author_email='Daniel.Ewert@de.bosch.com',
