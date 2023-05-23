@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from jsonschema import ValidationError
 from assets2036py import Asset, Mode, AssetManager
 from assets2036py.communication import MockClient
-from assets2036py.exceptions import NotWritableError
+from assets2036py.exceptions import NotWritableError, AssetNotOnlineError
 from .test_utils import get_msgs_for_n_secs, wipe_retained_msgs, res_url
 logger = logging.getLogger(__name__)
 
@@ -707,3 +707,21 @@ class TestAsset(TestCase):
         asset.disconnect()
         time.sleep(1)
         self.assertFalse(asset_proxy.is_online)
+
+    def test_proxy_not_online_exception(self):
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        asset = mgr.create_asset("test_asset", res_url + "simple_prop.json")
+        asset.simple_prop_json.my_property.value = 42
+        time.sleep(1)
+
+        def create_proxy():
+            mgr2 = AssetManager(
+                HOST, PORT, "test_arena2036", "test_endpoint_2")
+            asset_proxy = mgr2.create_asset_proxy(
+                "test_arena2036", "test_asset", 3)
+            return True
+
+        self.assertTrue(create_proxy())
+        asset.disconnect()
+        time.sleep(1)
+        self.assertRaises(AssetNotOnlineError, create_proxy)

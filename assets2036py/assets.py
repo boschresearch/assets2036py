@@ -296,13 +296,13 @@ class SubModel:
             if "events" in submodel_definition:
                 self._create_subscribable_events(submodel_definition)
 
-    def is_online(self):
+    def is_online(self, seconds_to_wait):
         num_tries = 0
         if self.name == "_endpoint":
             online_prop = self.online
         else:
             online_prop = self.endpoint_asset._endpoint.online
-        while num_tries < 3:
+        while num_tries < seconds_to_wait * 2:
             online_state = online_prop.value
             if online_state == None:
                 num_tries += 1
@@ -461,8 +461,11 @@ class ProxyAsset(Asset):
 
     @property
     def is_online(self):
+        return self.wait_for_online(3)
+
+    def wait_for_online(self, seconds_to_wait):
         for submodel in self.sub_model_names:
-            if not getattr(self, submodel).is_online():
+            if not getattr(self, submodel).is_online(seconds_to_wait):
                 return False
         return True
 

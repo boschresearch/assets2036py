@@ -20,7 +20,7 @@ import logging
 from urllib.request import urlopen
 from threading import Thread, Event
 from assets2036py import Asset, Mode, ProxyAsset
-from assets2036py.exceptions import AssetNotFoundError, OperationTimeoutException
+from assets2036py.exceptions import AssetNotFoundError, OperationTimeoutException, AssetNotOnlineError
 from assets2036py.communication import CommunicationClient, MQTTClient
 from assets2036py.utilities import get_resource_path
 
@@ -199,15 +199,18 @@ class AssetManager:
 
         return self.client.query_asset_names(namespace, *submodel_names)
 
-    def create_asset_proxy(self, namespace: str, name: str) -> ProxyAsset:
+    def create_asset_proxy(self, namespace: str, name: str, wait_seconds_until_online: int = -1) -> ProxyAsset:
         """Returns the asset with the given name if found, raises AssetNotFoundError otherwise
 
         Args:
             namespace (str): namespace to use
             name (str): name of asset to use
+            wait_seconds_until_online (int): seconds to wait for the asset to register as online.
+                -1 ignores online state and initiates asset (default: -1)
 
         Raises:
             AssetNotFoundError: raised if Asset cannot be found
+            AssetNotOnlineError: raised if Asset doesn't come online in set time
 
         Returns:
             Asset: returns Asset proxy to be used to communicate with remote asset
@@ -216,8 +219,14 @@ class AssetManager:
         if not submodels:
             raise AssetNotFoundError
         # verified_submodels = self._get_submodel_schemata(submodels)
-        return ProxyAsset(name, namespace, *submodels.values(), mode=Mode.CONSUMER, communication_client=self.client,
-                          endpoint_name=self.endpoint_name)
+
+        proxy_asset = ProxyAsset(name, namespace, *submodels.values(), mode=Mode.CONSUMER, communication_client=self.client,
+                                 endpoint_name=self.endpoint_name)
+        if wait_seconds_until_online >= 0:
+            online = proxy_asset.wait_for_online(wait_seconds_until_online)
+            if not online:
+                raise AssetNotOnlineError
+        return proxy_asset
 
     def _get_submodel_schemata(self, sub_models):
         # pylint: disable=protected-access,broad-except

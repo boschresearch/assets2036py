@@ -35,3 +35,7 @@ class NotReadableError(Exception):
 
 class InvalidParameterException(Exception):
     pass
+
+
+class AssetNotOnlineError(Exception):
+    pass
