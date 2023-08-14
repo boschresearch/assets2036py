@@ -155,6 +155,7 @@ class Event(ABC):
         self.name = name
         self.parent = parent
         self.communication_client = parent.communication_client
+        self._parameters = {}
         if "parameters" in event_definition:
             self._parameters = {name: PropertyType[schema["type"].upper()] for name, schema in
                                 event_definition["parameters"].items()}

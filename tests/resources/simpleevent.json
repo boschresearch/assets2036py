@@ -2,11 +2,20 @@
   "name": "simpleevent",
   "revision": "0.0.1",
   "events": {
+    "empty_happened": {},
     "bool_happened": {
-      "parameters": { "bool_payload": { "type": "boolean" } }
+      "parameters": {
+        "bool_payload": {
+          "type": "boolean"
+        }
+      }
     },
     "string_happened": {
-      "parameters": { "string_payload": { "type": "string" } }
+      "parameters": {
+        "string_payload": {
+          "type": "string"
+        }
+      }
     },
     "object_happened": {
       "parameters": {
@@ -20,7 +29,10 @@
               "type": "number"
             }
           },
-          "required": ["x", "y"]
+          "required": [
+            "x",
+            "y"
+          ]
         }
       }
     }

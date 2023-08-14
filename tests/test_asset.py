@@ -522,6 +522,24 @@ class TestAsset(TestCase):
 
         self.assertEqual(len(cb_counter), 3)
 
+    def test_empty_event(self):
+        mgr = AssetManager(HOST, PORT,
+                           "test_arena2036", "test_endpoint_1")
+        eventer = mgr.create_asset(
+            "eventer", res_url + "simpleevent.json", mode=Mode.OWNER)
+
+        listener2 = mgr.create_asset(
+            "eventer", res_url + "simpleevent.json", mode=Mode.CONSUMER)
+        callback_called = False
+
+        def empty_callback(_ts):
+            nonlocal callback_called
+            callback_called = True
+        listener2.simpleevent.empty_happened.on_event(empty_callback)
+        eventer.simpleevent.empty_happened()
+        time.sleep(3)
+        self.assertTrue(callback_called)
+
     def test_class_callbacks(self):
 
         class AdderDoerClass:
