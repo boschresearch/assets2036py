@@ -328,7 +328,7 @@ class SubModel:
             namespace = self.parent.namespace
             source_asset = source_address
         if source_asset == self.parent.name and namespace == self.parent.namespace:
-            # this asset is endpoint for itsself.
+            # this asset is endpoint for itself.
             self.endpoint_asset = self.parent
         else:
             with open(get_resource_path("_endpoint.json")) as file:
@@ -384,10 +384,10 @@ class SubModel:
 class Asset:
     """Core element of assets2036py. Assets are automatically generated during runtime from given submodel descriptions.
 
-    For each submodel description given an asset receives a attribute of the same name.
+    For each submodel description given an asset receives an attribute of the same name.
     Each submodel then implements the operations, properties and events specified by the submodel.
 
-    You shouldn't instanciate assets by yourself, make use of :class: `assets2036py.assetmanager`
+    You shouldn't instantiate assets by yourself, make use of :class: `assets2036py.assetmanager`
 
     """
 

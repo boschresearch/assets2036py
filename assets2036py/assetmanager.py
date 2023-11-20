@@ -108,7 +108,7 @@ class AssetManager:
     def _self_ping(self) -> bool:
         """internal helper to check if connection to broker is still up
         Returns:
-            bool: True if ping successfull, else False
+            bool: True if ping successfully, else False
         """
         if not self._endpoint:
             return False
@@ -167,7 +167,7 @@ class AssetManager:
         Args:
             name (str): Name of the asset to create
             mode (int, optional): set mode to consumer or owner. Defaults to Mode.OWNER.
-            namespace (str, optional): Namespace in which asset is created. If not set, namespace of assetmanager is used. Defaults to None.
+            namespace (str, optional): Namespace in which asset is created. If not set, namespace of asset manager is used. Defaults to None.
 
         Returns:
             Asset: Newly created asset

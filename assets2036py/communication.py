@@ -35,9 +35,9 @@ from inspect import signature
 logger = logging.getLogger(__name__)
 
 
-def create_name_regexp(namespace, assetnname):
+def create_name_regexp(namespace, assetname):
     namespace_sanitized = namespace.replace("+", "\w+?")
-    assetname_sanitized = assetnname.replace("+", "\w+?")
+    assetname_sanitized = assetname.replace("+", "\w+?")
     return f"{namespace_sanitized}/{assetname_sanitized}/([A-Za-z0-9._-]*)/_meta"
 
 
@@ -278,7 +278,7 @@ class MQTTClient(CommunicationClient):
                     "Callback got wrong number of parameters: %s", e)
             except:
                 logger.error(
-                    " Exception occured during callback execution:\n %s", traceback.format_exc())
+                    " Exception occurred during callback execution:\n %s", traceback.format_exc())
 
         self.subscribe(
             operation + "/REQ", lambda payload: self._executor.submit(callback_func, payload))
@@ -302,7 +302,7 @@ class MQTTClient(CommunicationClient):
                     "Callback got wrong number of parameters: %s", e)
             except:
                 logger.error(
-                    " Exception occured during callback execution:\n%s", traceback.format_exc())
+                    " Exception occurred during callback execution:\n%s", traceback.format_exc())
 
         self.subscribe(event, lambda payload: self._executor.submit(
             callback_func, payload))
