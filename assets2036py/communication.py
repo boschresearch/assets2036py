@@ -29,6 +29,7 @@ from dateutil import tz
 import paho.mqtt.client as mqtt
 from assets2036py.exceptions import OperationTimeoutException, InvalidParameterException
 from assets2036py import context
+from inspect import signature
 
 
 logger = logging.getLogger(__name__)
@@ -343,7 +344,12 @@ class MQTTClient(CommunicationClient):
             if message.payload:
 
                 # support callbacks for full info as well as payload only
-                if callback.__code__.co_argcount < 3:
+                func = callback
+                # support for partials
+                if hasattr(callback,"func"):
+                    func = callback.func
+
+                if len(signature(func).parameters) < 3:
                     callback(message.payload)
                 else:
                     callback(client, userdata, message)
