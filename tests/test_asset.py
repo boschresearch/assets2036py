@@ -1,4 +1,3 @@
-
 # Copyright (c) 2016 - for information on the respective copyright owner
 # see the NOTICE file and/or the repository https://github.com/boschresearch/assets2036py.
 #
@@ -15,22 +14,26 @@
 # limitations under the License.
 
 import logging
-import time
 import os
-from unittest import TestCase
-from threading import Thread
-from multiprocessing import Pool
+import time
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import Pool
+from threading import Thread
+from unittest import TestCase
 
 from jsonschema import ValidationError
+
 from assets2036py import Asset, Mode, AssetManager
 from assets2036py.communication import MockClient
 from assets2036py.exceptions import NotWritableError, AssetNotOnlineError
 from .test_utils import get_msgs_for_n_secs, wipe_retained_msgs, res_url
+
 logger = logging.getLogger(__name__)
 
 HOST = os.getenv("MQTT_BROKER_URL", "localhost")
 PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+
+
 # HINT: Add an .env file to the root of your project to set the environment variables
 
 
@@ -87,7 +90,8 @@ class TestAsset(TestCase):
         mgr = AssetManager(HOST, PORT,
                            "test_arena2036", "test_endpoint_1")
         source = mgr.create_asset(
-            "source", "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
+            "source",
+            "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
         source.powerstate.power_state.value = True
 
     def test_implement_complex_sub_model_consumer(self):
@@ -104,6 +108,7 @@ class TestAsset(TestCase):
 
         def evil_func():
             a.active_shuttle.pose.value = {'x': 5.7, 'y': 3.5, 'z': 0.1}
+
         self.assertRaises(NotWritableError, evil_func)
         self.assertIsInstance(a.active_shuttle.pose.value, type(None))
 
@@ -390,7 +395,7 @@ class TestAsset(TestCase):
             "source", res_url + "array_operation.json", mode=Mode.OWNER)
 
         def do_give_array(length):
-            return [1]*length
+            return [1] * length
 
         owner.array_operation.bind_give_array(do_give_array)
 
@@ -426,8 +431,8 @@ class TestAsset(TestCase):
             "source", res_url + "simple_operation.json", mode=Mode.CONSUMER) for i in range(10)]
 
         for idx, c in enumerate(consumers):
-            res = c.simple_operation.addnumbers(a=3+idx, b=4+idx)
-            self.assertEqual(res, 3+idx + 4+idx)
+            res = c.simple_operation.addnumbers(a=3 + idx, b=4 + idx)
+            self.assertEqual(res, 3 + idx + 4 + idx)
 
     def testParallelOperationRequests(self):
         mgr = AssetManager(HOST, PORT,
@@ -499,6 +504,7 @@ class TestAsset(TestCase):
             "eventer", res_url + "simpleevent.json", mode=Mode.CONSUMER)
 
         cb_counter = []
+
         # pylint: disable=unused-argument
 
         def bool_cb_named(_ts, bool_payload):
@@ -535,6 +541,7 @@ class TestAsset(TestCase):
         def empty_callback(_ts):
             nonlocal callback_called
             callback_called = True
+
         listener2.simpleevent.empty_happened.on_event(empty_callback)
         eventer.simpleevent.empty_happened()
         time.sleep(3)
@@ -674,7 +681,7 @@ class TestAsset(TestCase):
         def do_addnumbers(a, b):
             req_id = context.req_id
             self.assertIsNotNone(req_id)
-            return a+b
+            return a + b
 
         owner.simple_operation.bind_addnumbers(do_addnumbers)
 

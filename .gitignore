@@ -9,3 +9,9 @@ html
 docs
 .tox
 .env
+
+# Custom files for IDE
+/.idea/
+
+# Distribution files
+/dist/
