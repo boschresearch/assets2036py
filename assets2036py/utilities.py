@@ -49,6 +49,7 @@ class Context:
         print(context.name) # outputs "monty"
 
     """
+
     class __Context:
         """
         Inner instance class

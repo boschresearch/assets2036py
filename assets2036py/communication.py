@@ -14,23 +14,21 @@
 # limitations under the License.
 
 import json
-import sys
-import uuid
-import time
-import re
-import traceback
-from abc import ABC, abstractmethod
 import logging
+import re
+import time
+import traceback
+import uuid
+from abc import ABC, abstractmethod
 from collections import defaultdict
-from queue import Queue, Empty
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from dateutil import tz
+from queue import Queue, Empty
 import paho.mqtt.client as mqtt
+from dateutil import tz
+from .utilities import context
 from assets2036py.exceptions import OperationTimeoutException, InvalidParameterException
-from assets2036py import context
 from inspect import signature
-
 
 logger = logging.getLogger(__name__)
 
@@ -126,8 +124,7 @@ class MockClient(CommunicationClient):
         logger.debug("Disconnecting!")
 
     def publish(self, topic, payload, **config):
-        logger.debug("Sending %s to %s with %s",
-                     payload, topic, config)
+        logger.debug("Sending %s to %s with %s", payload, topic, config)
 
     def subscribe(self, topic, callback):
         logger.debug("Subscribed to %s", topic)
@@ -149,20 +146,18 @@ class MQTTClient(CommunicationClient):
 
     def __init__(self, client_id):
         self._queues = defaultdict(Queue)
-        self.client = mqtt.Client(
-            f"assets2036py_{client_id}_{uuid.uuid4().hex}", clean_session=False)
+        self.client = mqtt.Client(f"assets2036py_{client_id}_{uuid.uuid4().hex}", clean_session=True)
         self._executor = ThreadPoolExecutor(max_workers=10)
 
     def join(self, timeout=None):
-        #pylint: disable=protected-access
+        # pylint: disable=protected-access
         self.client._thread.join(timeout)
 
     def _get_msgs_for_n_secs(self, topic, seconds):
         msgs = defaultdict(list)
 
         def _message_callback(_client, _userdata, message):
-            logger.debug(
-                "Callback received %s from %s", message.payload, message.topic)
+            logger.debug("Callback received %s from %s", message.payload, message.topic)
             msgs[message.topic].append(message.payload)
 
         self.subscribe(topic, _message_callback)
@@ -181,13 +176,11 @@ class MQTTClient(CommunicationClient):
         self.publish(event, json.dumps(payload), retain=False)
 
     def query_submodels_for_asset(self, namespace, name, seconds=1):
-        msgs = self._get_msgs_for_n_secs(
-            f"{namespace}/{name}/+/_meta", seconds)
+        msgs = self._get_msgs_for_n_secs(f"{namespace}/{name}/+/_meta", seconds)
         submodels = {}
         for topic, meta in msgs.items():
             regexp = create_name_regexp(namespace, name)
-            match = re.search(
-                regexp, topic)
+            match = re.search(regexp, topic)
             if not match:
                 continue
             submodel_name = match[1]
@@ -201,16 +194,14 @@ class MQTTClient(CommunicationClient):
         for sm in submodel_names:
 
             regexp = create_submodel_regexp(namespace, sm)
-            msgs = self._get_msgs_for_n_secs(
-                f"{namespace}/+/{sm}/_meta", seconds)
+            msgs = self._get_msgs_for_n_secs(f"{namespace}/+/{sm}/_meta", seconds)
             asset_names_for_sm = set()
             for topic in msgs:
                 match = re.search(regexp, topic)
                 if not match:
                     continue
                 asset_name = match[1]
-                asset_names_for_sm.add(
-                    asset_name)
+                asset_names_for_sm.add(asset_name)
             asset_names.append(asset_names_for_sm)
         if not asset_names:
             return set()
@@ -227,20 +218,17 @@ class MQTTClient(CommunicationClient):
             "params": parameter
         }
 
-        self.publish(operation + "/REQ", json.dumps(payload),
-                     retain=False)  # Don't resend method invocations!
+        self.publish(operation + "/REQ", json.dumps(payload), retain=False)  # Don't resend method invocations!
         logger.debug("%s invoked with payload %s", operation, payload)
         try:
             start = time.perf_counter()
             response = self._queues[req_id].get(timeout=timeout)
             end = time.perf_counter()
-            logger.debug(
-                "got response \"%s\" after %s seconds", response, end-start)
+            logger.debug("got response \"%s\" after %s seconds", response, end - start)
             return response
         except Empty:
             # pylint: disable=raise-missing-from
-            raise OperationTimeoutException(
-                f"{operation} timed out")
+            raise OperationTimeoutException(f"{operation} timed out")
 
     def _on_response(self, payload):
         try:
@@ -265,8 +253,7 @@ class MQTTClient(CommunicationClient):
                     "req_id": req_id,
                     "resp": res
                 }
-                self.publish(operation + "/RESP", json.dumps(response),
-                             retain=False)  # Don't resend results
+                self.publish(operation + "/RESP", json.dumps(response), retain=False)  # Don't resend results
             except InvalidParameterException as e:
                 logger.error("Callback got invalid parameters: %s", e)
             except KeyError as e:
@@ -274,14 +261,11 @@ class MQTTClient(CommunicationClient):
             except json.JSONDecodeError as e:
                 logger.error("Received invalid json: %s", e)
             except TypeError as e:
-                logger.error(
-                    "Callback got wrong number of parameters: %s", e)
+                logger.error("Callback got wrong number of parameters: %s", e)
             except:
-                logger.error(
-                    " Exception occurred during callback execution:\n %s", traceback.format_exc())
+                logger.error(" Exception occurred during callback execution:\n %s", traceback.format_exc())
 
-        self.subscribe(
-            operation + "/REQ", lambda payload: self._executor.submit(callback_func, payload))
+        self.subscribe(operation + "/REQ", lambda payload: self._executor.submit(callback_func, payload))
 
     def subscribe_event(self, event, callback):
         def callback_func(payload):
@@ -298,21 +282,17 @@ class MQTTClient(CommunicationClient):
             except json.JSONDecodeError as e:
                 logger.error("Received invalid json: %s", e)
             except TypeError as e:
-                logger.error(
-                    "Callback got wrong number of parameters: %s", e)
+                logger.error("Callback got wrong number of parameters: %s", e)
             except:
-                logger.error(
-                    " Exception occurred during callback execution:\n%s", traceback.format_exc())
+                logger.error(" Exception occurred during callback execution:\n%s", traceback.format_exc())
 
-        self.subscribe(event, lambda payload: self._executor.submit(
-            callback_func, payload))
+        self.subscribe(event, lambda payload: self._executor.submit(callback_func, payload))
 
     def disconnect(self):
         # pylint: disable=protected-access
         if self.client._will_topic:
             # noinspection PyProtectedMember
-            self.client.publish(self.client._will_topic.decode(
-            ), self.client._will_payload.decode(), retain=True)
+            self.client.publish(self.client._will_topic.decode(), self.client._will_payload.decode(), retain=True)
         self.client.disconnect()
         self.client.loop_stop()
 
@@ -326,21 +306,18 @@ class MQTTClient(CommunicationClient):
         self.client.on_message = cb
 
     def connect(self, **config):
-        self.client.will_set(
-            f"{config['namespace']}/{config['endpoint_name']}/_endpoint/online", "false", retain=True)
+        self.client.will_set(f"{config['namespace']}/{config['endpoint_name']}/_endpoint/online", "false", retain=True)
         self.client.connect(config["host"], config["port"], keepalive=10)
         self.client.loop_start()
 
     def publish(self, topic, payload, **config):
         logger.debug("Sending %s to %s", payload, topic)
-        self.client.publish(topic, payload, config.get(
-            "qos", 2), config.get("retain", True))
+        self.client.publish(topic, payload, config.get("qos", 2), config.get("retain", True))
 
     def subscribe(self, topic, callback):
 
         def callback_func(client, userdata, message):
-            logger.debug(
-                "Received %s from %s", message.payload, message.topic)
+            logger.debug("Received %s from %s", message.payload, message.topic)
             if message.payload:
 
                 # support callbacks for full info as well as payload only
@@ -356,10 +333,7 @@ class MQTTClient(CommunicationClient):
             else:
                 logger.debug("Ignored empty message on %s", message.topic)
 
-        self.client.message_callback_add(
-            topic, lambda c, u, m: self._executor.submit(
-                callback_func, c, u, m)
-        )
+        self.client.message_callback_add(topic, lambda c, u, m: self._executor.submit(callback_func, c, u, m))
         self.client.subscribe(topic, 2)
         logger.debug("Subscribed to %s", topic)
 

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .utilities import context
 from .assets import *
+from .utilities import context
 from .assetmanager import *
 from .exceptions import *

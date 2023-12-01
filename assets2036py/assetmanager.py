@@ -13,19 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ssl
 import json
-import os
 import logging
-from urllib.request import urlopen
+import os
+import ssl
 from threading import Thread, Event
-from assets2036py import Asset, Mode, ProxyAsset
-from assets2036py.exceptions import AssetNotFoundError, OperationTimeoutException, AssetNotOnlineError
-from assets2036py.communication import CommunicationClient, MQTTClient
-from assets2036py.utilities import get_resource_path
+from urllib.request import urlopen
 
+from assets2036py import Asset, Mode, ProxyAsset
+from assets2036py.communication import CommunicationClient, MQTTClient
+from assets2036py.exceptions import AssetNotFoundError, OperationTimeoutException, AssetNotOnlineError
+from assets2036py.utilities import get_resource_path
+from assets2036py.assetlogging import AssetLoggingHandler
 
 logger = logging.getLogger(__name__)
+
 
 # pylint: disable=line-too-long
 
@@ -36,7 +38,8 @@ class AssetManager:
 
     """
 
-    def __init__(self, host: str, port: int, namespace: str, endpoint_name: str, communication_client: CommunicationClient = MQTTClient):
+    def __init__(self, host: str, port: int, namespace: str, endpoint_name: str,
+                 communication_client: CommunicationClient = MQTTClient) -> None:
         """
         Args:
             host (str): URL of MQTT broker or registry
@@ -50,16 +53,38 @@ class AssetManager:
         self.host = host
         self.namespace = namespace
         self.client = communication_client(client_id=endpoint_name)
-        self.client.connect(host=host, port=port,
-                            namespace=namespace, endpoint_name=endpoint_name)
+        self.client.connect(host=host, port=port, namespace=namespace, endpoint_name=endpoint_name)
         self._endpoint = None
         self._shutdown = Event()
+
+    def __del__(self):
+        """
+        Destructor definition. Disconnect underlying communication client.
+        """
+        self.disconnect()
 
     def disconnect(self):
         """disconnect underlying communication client
         """
         self._shutdown.set()
         self.client.disconnect()
+
+    def get_logging_handler(self):
+        """
+        Return a logging handler which enables to log onto MQTT via the endpoint of the assetmanager.
+
+        Examples:
+            For registering a logger, follow these steps:
+
+            _logger = logging.getLogger("testing_logger")
+            mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
+            lh = mgr.get_logging_handler()
+            _logger.addHandler(lh)
+            _logger.info("Hallo Test")
+        """
+        if not self._endpoint:
+            self._create_endpoint_asset()
+        return AssetLoggingHandler(self._endpoint._endpoint)
 
     @property
     def healthy(self) -> bool:
@@ -95,6 +120,7 @@ class AssetManager:
             interval (int, optional): callback will be called every <interval> seconds. Defaults to 30.
             kill_on_unhealthy (bool, optional): If set to True, os._exit(-1) is called and app is terminated. Defaults to False.
         """
+
         def monitor_loop():
             while not self._shutdown.is_set():
                 self.healthy = self._self_ping() and callback()
@@ -102,8 +128,8 @@ class AssetManager:
                     # pylint: disable=protected-access
                     os._exit(-1)
                 self._shutdown.wait(interval)
-        Thread(target=monitor_loop,
-               name=f"{self.endpoint_name}_Monitor").start()
+
+        Thread(target=monitor_loop, name=f"{self.endpoint_name}_Monitor").start()
 
     def _self_ping(self) -> bool:
         """internal helper to check if connection to broker is still up
@@ -113,8 +139,7 @@ class AssetManager:
         if not self._endpoint:
             return False
         try:
-            proxy_self = self.create_asset_proxy(
-                self.namespace, self.endpoint_name)
+            proxy_self = self.create_asset_proxy(self.namespace, self.endpoint_name)
             # pylint: disable=protected-access
             proxy_self._endpoint.ping(timeout=2)
             return True
@@ -122,16 +147,11 @@ class AssetManager:
             logger.error("self ping failed: %s", ote)
             return False
 
-    def _create_endpoint_asset(self) -> Asset:
-        """create the endpoint asset (for internal use)
-
-        Returns:
-            Asset: Endpoint asset
-        """
+    def _create_endpoint_asset(self) -> None:
+        """create the endpoint asset (for internal use)"""
         with open(get_resource_path("_endpoint.json")) as file:
             endpoint_sm_definition = json.load(file)
-        endpoint = self.create_asset(
-            self.endpoint_name, endpoint_sm_definition, create_endpoint=False)
+        endpoint = self.create_asset(self.endpoint_name, endpoint_sm_definition, create_endpoint=False)
 
         # pylint: disable=protected-access
         endpoint._endpoint.online.value = True
@@ -143,6 +163,7 @@ class AssetManager:
         # quick hack
         def set_online(_client, _userdata, _flags, _rc):
             endpoint._endpoint.online.value = True
+
         self.client.on_connect(set_online)
 
         self._endpoint = endpoint
@@ -161,13 +182,15 @@ class AssetManager:
         logger.debug("Restarting. TBI")
         self.shutdown()
 
-    def create_asset(self, name: str, *sub_models: str, mode=Mode.OWNER, namespace=None, create_endpoint=True) -> Asset:
+    def create_asset(self, name: str, *sub_models: str, mode=Mode.OWNER, namespace=None, create_endpoint=True,
+                     lazy_loading: bool = False) -> Asset:
         """Create a new Asset
 
         Args:
             name (str): Name of the asset to create
             mode (int, optional): set mode to consumer or owner. Defaults to Mode.OWNER.
             namespace (str, optional): Namespace in which asset is created. If not set, namespace of asset manager is used. Defaults to None.
+            lazy_loading: If activated, properties of the implemented submodel are only loaded after first reference.
 
         Returns:
             Asset: Newly created asset
@@ -176,7 +199,7 @@ class AssetManager:
         if not namespace:
             namespace = self.namespace
         asset = Asset(name, namespace, *sub_models, mode=mode, communication_client=self.client,
-                      endpoint_name=self.endpoint_name)
+                      endpoint_name=self.endpoint_name, lazy_loading=lazy_loading)
         if create_endpoint and not self._endpoint:
             self._create_endpoint_asset()
         return asset
@@ -199,7 +222,8 @@ class AssetManager:
 
         return self.client.query_asset_names(namespace, *submodel_names)
 
-    def create_asset_proxy(self, namespace: str, name: str, wait_seconds_until_online: int = -1) -> ProxyAsset:
+    def create_asset_proxy(self, namespace: str, name: str, wait_seconds_until_online: int = -1,
+                           lazy_loading: bool = False) -> ProxyAsset:
         """Returns the asset with the given name if found, raises AssetNotFoundError otherwise
 
         Args:
@@ -207,6 +231,7 @@ class AssetManager:
             name (str): name of asset to use
             wait_seconds_until_online (int): seconds to wait for the asset to register as online.
                 -1 ignores online state and initiates asset (default: -1)
+            lazy_loading: If activated, properties of the implemented submodel are only loaded after first reference.
 
         Raises:
             AssetNotFoundError: raised if Asset cannot be found
@@ -220,8 +245,9 @@ class AssetManager:
             raise AssetNotFoundError
         # verified_submodels = self._get_submodel_schemata(submodels)
 
-        proxy_asset = ProxyAsset(name, namespace, *submodels.values(), mode=Mode.CONSUMER, communication_client=self.client,
-                                 endpoint_name=self.endpoint_name)
+        proxy_asset = ProxyAsset(name, namespace, *submodels.values(), mode=Mode.CONSUMER,
+                                 communication_client=self.client, endpoint_name=self.endpoint_name,
+                                 lazy_loading=lazy_loading)
         if wait_seconds_until_online >= 0:
             online = proxy_asset.wait_for_online(wait_seconds_until_online)
             if not online:
@@ -237,13 +263,10 @@ class AssetManager:
                 with urlopen(url, context=ssl._create_unverified_context()) as response:
                     schemata.append(json.load(response))
             except Exception as loadexc:
-                logger.warning(
-                    "Can't load schema from url \"%s\": %s", url, loadexc)
+                logger.warning("Can't load schema from url \"%s\": %s", url, loadexc)
                 try:
                     schemata.append(meta["submodel_definition"])
-                    logger.debug(
-                        "Using schema from submodel_definition")
+                    logger.debug("Using schema from submodel_definition")
                 except Exception as missingexc:
-                    logger.error(
-                        "No submodel schema retrievable: %s", missingexc)
+                    logger.error("No submodel schema retrievable: %s", missingexc)
         return schemata

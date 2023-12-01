@@ -41,21 +41,20 @@ class TestAssetManager(TestCase):
         time.sleep(2)
 
     def test_on_off_detection(self):
-
         mgr1 = AssetManager(HOST, PORT, NAMESPACE, "mgr1")
         mgr2 = AssetManager(HOST, PORT, NAMESPACE, "mgr2")
         mgr3 = AssetManager(HOST, PORT, NAMESPACE, "mgr3")
-        _asset1 = mgr1.create_asset(
-            "test_asset_123", "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
-        _asset2 = mgr2.create_asset(
-            "test_asset_123", "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
-        _asset3 = mgr3.create_asset(
-            "test_asset_123", "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
+        _asset1 = mgr1.create_asset("test_asset_123",
+                                    "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
+        _asset2 = mgr2.create_asset("test_asset_123",
+                                    "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
+        _asset3 = mgr3.create_asset("test_asset_123",
+                                    "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
 
         time.sleep(2)
         msgs = get_msgs_for_n_secs(f"{NAMESPACE}/+/_endpoint/online/#", 2)
         logger.debug([msg.payload for msg in msgs])
-        endpoints = {msg.topic: json.loads(msg.payload)for msg in msgs}
+        endpoints = {msg.topic: json.loads(msg.payload) for msg in msgs}
 
         self.assertEqual(len(msgs), 3)
         self.assertTrue(all(endpoints.values()))
@@ -79,10 +78,9 @@ class TestAssetManager(TestCase):
         self.assertTrue(all(not v for v in endpoints.values()))
 
     def test_healthy_flag(self):
-
         mgr1 = AssetManager(HOST, PORT, NAMESPACE, "mgr1")
-        _asset = mgr1.create_asset(
-            "test_asset_123", "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
+        _asset = mgr1.create_asset("test_asset_123",
+                                   "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
         msgs = get_msgs_for_n_secs(f"{NAMESPACE}/mgr1/_endpoint/healthy/#", 2)
         self.assertTrue(len(msgs), 1)
         self.assertEqual(msgs[0].payload, b"false")
@@ -90,8 +88,7 @@ class TestAssetManager(TestCase):
 
         mgr1.healthy = True
 
-        msgs2 = get_msgs_for_n_secs(
-            f"{NAMESPACE}/mgr1/_endpoint/healthy/#", 2)
+        msgs2 = get_msgs_for_n_secs(f"{NAMESPACE}/mgr1/_endpoint/healthy/#", 2)
         self.assertTrue(len(msgs2), 1)
         self.assertEqual(msgs2[0].payload, b"true")
 
@@ -108,7 +105,9 @@ class TestAssetManager(TestCase):
     def test_create_asset_proxy(self):
         mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
         _asset = mgr.create_asset(
-            "test_asset_123", "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
+            "test_asset_123",
+            "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json",
+        )
         asset_proxy = mgr.create_asset_proxy(NAMESPACE, "test_asset_123")
         self.assertIn("powerstate", dir(asset_proxy))
 
@@ -116,7 +115,9 @@ class TestAssetManager(TestCase):
         # pylint: disable=protected-access
         mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
         _asset = mgr.create_asset(
-            "test_asset_123", "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
+            "test_asset_123",
+            "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json",
+        )
         self.assertTrue(mgr._self_ping())
         mgr.disconnect()
         self.assertFalse(mgr._self_ping())
@@ -124,13 +125,22 @@ class TestAssetManager(TestCase):
     def test_shutdown(self):
         mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
         _asset = mgr.create_asset(
-            "test_asset_123", "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
+            "test_asset_123",
+            "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json",
+        )
         mgr.set_healthy_callback(lambda: True)
-        monitor_threads = [
-            t for t in threading.enumerate() if t.name[:3] == "mgr"]
+        monitor_threads = [t for t in threading.enumerate() if t.name[:3] == "mgr"]
         self.assertEqual(len(monitor_threads), 1)
         monitor_thread = monitor_threads[0]
         self.assertTrue(monitor_thread.is_alive())
         mgr.disconnect()
         time.sleep(3)
         self.assertFalse(monitor_thread.is_alive())
+
+    def test_logging_handler(self):
+        _logger = logging.getLogger("testing_logger")
+        mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
+        lh = mgr.get_logging_handler()
+        _logger.addHandler(lh)
+        _logger.setLevel(logging.DEBUG)
+        _logger.debug("Hallo Test")
