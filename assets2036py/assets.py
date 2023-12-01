@@ -13,18 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import time
-from enum import Enum
-from os import path
 import json
+import logging
 import ssl
+import time
 import traceback
-from json import JSONDecodeError
-from urllib.request import urlopen
 from abc import ABC, abstractmethod
+from enum import Enum
+from json import JSONDecodeError
 from numbers import Number
+from os import path
+from urllib.request import urlopen
+
 import jsonschema
+
 from assets2036py.exceptions import InvalidParameterException, NotWritableError
 from .utilities import sanitize, get_resource_path
 
@@ -32,11 +34,11 @@ from .utilities import sanitize, get_resource_path
 
 
 logger = logging.getLogger(__name__)
-schema_file = path.abspath(path.dirname(__file__)) + \
-    "/resources/submodel_schema.json"
+schema_file = path.abspath(path.dirname(__file__)) + "/resources/submodel_schema.json"
 
 with open(schema_file) as f:
     submodel_schema = json.load(f)
+
 
 # pylint: disable=no-member
 
@@ -96,7 +98,6 @@ class Property(ABC):
     @value.setter
     @abstractmethod
     def value(self, value):
-
         pass
 
     def on_change(self, callback):
@@ -113,8 +114,7 @@ class WritableProperty(Property):
     def value(self, value):
         self.assert_valid_type(value)
         self._val = value
-        self.communication_client.publish(
-            self._get_topic(), json.dumps(value))
+        self.communication_client.publish(self._get_topic(), json.dumps(value))
 
     def delete(self):
         logger.debug("deleting %s", self.name)
@@ -146,8 +146,7 @@ class ReadOnlyProperty(Property):
         except JSONDecodeError as jsonexc:
             logger.error("Payload '%s' was invalid JSON: %s", payload, jsonexc)
         except AssertionError as assertexc:
-            logger.error("Parsed payload '%s' has wrong type: %s",
-                         payload, assertexc)
+            logger.error("Parsed payload '%s' has wrong type: %s", payload, assertexc)
 
 
 class Event(ABC):
@@ -178,16 +177,14 @@ class SubscribableEvent(Event):
                     f" expected {','.join(self._parameters.keys())} but received {parameters}")
             callback(timestamp, **parameters)
 
-        self.communication_client.subscribe_event(
-            self._get_topic(), callback_func)
+        self.communication_client.subscribe_event(self._get_topic(), callback_func)
 
 
 class TriggerableEvent(Event):
 
     def trigger(self, **params):
         if not self._validate_parameters(params):
-            raise InvalidParameterException(
-                f" expected {self._parameters.keys()} but got {params}")
+            raise InvalidParameterException(f" expected {self._parameters.keys()} but got {params}")
         self.communication_client.trigger_event(self._get_topic(), params)
 
 
@@ -202,8 +199,7 @@ class Operation(ABC):
             self._parameters = {name: PropertyType[schema["type"].upper()] for name, schema in
                                 operation_definition["parameters"].items()}
         if "response" in operation_definition:
-            self._response_type = PropertyType[operation_definition["response"]["type"].upper(
-            )]
+            self._response_type = PropertyType[operation_definition["response"]["type"].upper()]
             self._response_schema = operation_definition["response"]
 
     @abstractmethod
@@ -224,15 +220,12 @@ class CallableOperation(Operation):
 
     def invoke(self, timeout=None, **params):
         if not self._validate_parameters(params):
-            raise InvalidParameterException(
-                f" expected {self._parameters} but got {params}")
+            raise InvalidParameterException(f" expected {self._parameters} but got {params}")
         logger.debug("Calling %s", self.name)
-        res = self.communication_client.invoke_operation(
-            self._get_topic(), params, timeout)
+        res = self.communication_client.invoke_operation(self._get_topic(), params, timeout)
         logger.debug("%s got %s", self.name, res)
         if hasattr(self, "_response_type"):
-            assert isinstance(
-                res, self._response_type.native_type())
+            assert isinstance(res, self._response_type.native_type())
             return res
 
 
@@ -250,14 +243,12 @@ class BindableOperation(Operation):
                 logger.debug("callback executed, response is %s", res)
             # pylint: disable=broad-except
             except Exception:
-                logger.error(
-                    "operation '%s' caused exception:\n%s", callback, traceback.format_exc())
+                logger.error("operation '%s' caused exception:\n%s", callback, traceback.format_exc())
             if hasattr(self, "_response_type"):
                 jsonschema.validate(res, self._response_schema)
                 return res
 
-        self.communication_client.bind_operation(
-            self._get_topic(), callback_func)
+        self.communication_client.bind_operation(self._get_topic(), callback_func)
 
 
 class SubModel:
@@ -328,21 +319,18 @@ class SubModel:
             namespace = self.parent.namespace
             source_asset = source_address
         if source_asset == self.parent.name and namespace == self.parent.namespace:
-            # this asset is endpoint for itsself.
+            # this asset is endpoint for itself.
             self.endpoint_asset = self.parent
         else:
             with open(get_resource_path("_endpoint.json")) as file:
                 endpoint_sm_definition = json.load(file)
-            self.endpoint_asset = Asset(source_asset, namespace,
-                                        endpoint_sm_definition, mode=Mode.CONSUMER, communication_client=self.communication_client, endpoint_name="")
-        self.endpoint_asset._endpoint.online.on_change(
-            self._raise_offline_exception)
+            self.endpoint_asset = Asset(source_asset, namespace, endpoint_sm_definition, mode=Mode.CONSUMER,
+                                        communication_client=self.communication_client, endpoint_name="")
+        self.endpoint_asset._endpoint.online.on_change(self._raise_offline_exception)
 
     def delete(self):
-        deletables = [getattr(self, prop) for prop in dir(
-            self) if type(getattr(self, prop)) == WritableProperty]
-        deletables.extend(getattr(self, prop) for prop in dir(
-            self) if type(getattr(self, prop)) == BindableOperation)
+        deletables = [getattr(self, prop) for prop in dir(self) if type(getattr(self, prop)) == WritableProperty]
+        deletables.extend(getattr(self, prop) for prop in dir(self) if type(getattr(self, prop)) == BindableOperation)
         for d in deletables:
             d.delete()
 
@@ -384,10 +372,10 @@ class SubModel:
 class Asset:
     """Core element of assets2036py. Assets are automatically generated during runtime from given submodel descriptions.
 
-    For each submodel description given an asset receives a attribute of the same name.
+    For each submodel description given an asset receives an attribute of the same name.
     Each submodel then implements the operations, properties and events specified by the submodel.
 
-    You shouldn't instanciate assets by yourself, make use of :class: `assets2036py.assetmanager`
+    You shouldn't instantiate assets by yourself, make use of :class: `assets2036py.assetmanager`
 
     """
 
@@ -423,8 +411,7 @@ class Asset:
                         submodel_def = json.load(response)
                     submodel_url = submodel
                 except ValueError as valexc:
-                    logger.error(
-                        "Could not parse submodel definition of %s:\n%s", submodel, valexc)
+                    logger.error("Could not parse submodel definition of %s:\n%s", submodel, valexc)
                     return
         else:
             submodel_def = submodel
@@ -449,7 +436,8 @@ class Asset:
 
 class ProxyAsset(Asset):
 
-    def __init__(self, name: str, namespace: str, *meta_infos, mode=Mode.CONSUMER, communication_client, endpoint_name) -> None:
+    def __init__(self, name: str, namespace: str, *meta_infos, mode=Mode.CONSUMER, communication_client,
+                 endpoint_name) -> None:
         submodel_defs = []
         sources = {}
         for meta_info in meta_infos:
@@ -457,8 +445,8 @@ class ProxyAsset(Asset):
             submodel_defs.append(sm_def)
             sources[sm_def["name"]] = meta_info["source"]
 
-        super().__init__(name, namespace, *submodel_defs, mode=mode,
-                         communication_client=communication_client, endpoint_name=endpoint_name)
+        super().__init__(name, namespace, *submodel_defs, mode=mode, communication_client=communication_client,
+                         endpoint_name=endpoint_name)
         for name, source in sources.items():
             if name != "_endpoint":
                 getattr(self, name).register_source(source)

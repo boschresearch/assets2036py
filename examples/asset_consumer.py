@@ -37,19 +37,19 @@ ENDPOINT = "assetconsumerexample"
 
 
 def on_light_switched_event(timestamp, state):
-    '''callback for the "light_switched" event
+    """callback for the "light_switched" event
     Must have mandatory parameter to receive the timestamp and either **kwargs to collect all
-    keyworded parameters or every parameter described 
+    keyworded parameters or every parameter described
     in event specification with the exact same name
-    '''
+    """
     logger.debug(
         "Received an Event! At %s light has been switched to %s", timestamp, state)
 
 
 def on_light_on_property_change(value):
-    '''callback for property change
+    """callback for property change
     Must have one parameter to receive the new value
-    '''
+    """
     logger.debug("Property 'light_on' has changed to %s", value)
 
 

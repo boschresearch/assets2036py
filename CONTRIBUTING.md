@@ -91,7 +91,7 @@ you have the right to submit the code.
 
 If you are a developer who is authorized to contribute to UUV Simulator on
 behalf of your employer, then please use your corporate email address in the
-Signed-off-by tag. Otherwise please use a personal email address.
+Signed-off-by tag. Otherwise, please use a personal email address.
 
 ## Maintain Copyright holder / Contributor list
 
