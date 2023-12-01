@@ -24,10 +24,8 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from queue import Queue, Empty
-
 import paho.mqtt.client as mqtt
 from dateutil import tz
-
 from .utilities import context
 from assets2036py.exceptions import OperationTimeoutException, InvalidParameterException
 from inspect import signature
