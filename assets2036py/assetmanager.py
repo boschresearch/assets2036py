@@ -24,6 +24,7 @@ from assets2036py import Asset, Mode, ProxyAsset
 from assets2036py.communication import CommunicationClient, MQTTClient
 from assets2036py.exceptions import AssetNotFoundError, OperationTimeoutException, AssetNotOnlineError
 from assets2036py.utilities import get_resource_path
+from assets2036py.assetlogging import AssetLoggingHandler
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,23 @@ class AssetManager:
         """
         self._shutdown.set()
         self.client.disconnect()
+
+    def get_logging_handler(self):
+        """
+        Return a logging handler which enables to log onto MQTT via the endpoint of the assetmanager.
+
+        Examples:
+            For registering a logger, follow these steps:
+
+            _logger = logging.getLogger("testing_logger")
+            mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
+            lh = mgr.get_logging_handler()
+            _logger.addHandler(lh)
+            _logger.info("Hallo Test")
+        """
+        if not self._endpoint:
+            self._create_endpoint_asset()
+        return AssetLoggingHandler(self._endpoint._endpoint)
 
     @property
     def healthy(self) -> bool:
@@ -129,12 +147,8 @@ class AssetManager:
             logger.error("self ping failed: %s", ote)
             return False
 
-    def _create_endpoint_asset(self) -> Asset:
-        """create the endpoint asset (for internal use)
-
-        Returns:
-            Asset: Endpoint asset
-        """
+    def _create_endpoint_asset(self) -> None:
+        """create the endpoint asset (for internal use)"""
         with open(get_resource_path("_endpoint.json")) as file:
             endpoint_sm_definition = json.load(file)
         endpoint = self.create_asset(self.endpoint_name, endpoint_sm_definition, create_endpoint=False)
