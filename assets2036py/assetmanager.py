@@ -168,13 +168,15 @@ class AssetManager:
         logger.debug("Restarting. TBI")
         self.shutdown()
 
-    def create_asset(self, name: str, *sub_models: str, mode=Mode.OWNER, namespace=None, create_endpoint=True) -> Asset:
+    def create_asset(self, name: str, *sub_models: str, mode=Mode.OWNER, namespace=None, create_endpoint=True,
+                     lazy_loading: bool = False) -> Asset:
         """Create a new Asset
 
         Args:
             name (str): Name of the asset to create
             mode (int, optional): set mode to consumer or owner. Defaults to Mode.OWNER.
             namespace (str, optional): Namespace in which asset is created. If not set, namespace of asset manager is used. Defaults to None.
+            lazy_loading: If activated, properties of the implemented submodel are only loaded after first reference.
 
         Returns:
             Asset: Newly created asset
@@ -183,7 +185,7 @@ class AssetManager:
         if not namespace:
             namespace = self.namespace
         asset = Asset(name, namespace, *sub_models, mode=mode, communication_client=self.client,
-                      endpoint_name=self.endpoint_name)
+                      endpoint_name=self.endpoint_name, lazy_loading=lazy_loading)
         if create_endpoint and not self._endpoint:
             self._create_endpoint_asset()
         return asset
@@ -206,7 +208,8 @@ class AssetManager:
 
         return self.client.query_asset_names(namespace, *submodel_names)
 
-    def create_asset_proxy(self, namespace: str, name: str, wait_seconds_until_online: int = -1) -> ProxyAsset:
+    def create_asset_proxy(self, namespace: str, name: str, wait_seconds_until_online: int = -1,
+                           lazy_loading: bool = False) -> ProxyAsset:
         """Returns the asset with the given name if found, raises AssetNotFoundError otherwise
 
         Args:
@@ -214,6 +217,7 @@ class AssetManager:
             name (str): name of asset to use
             wait_seconds_until_online (int): seconds to wait for the asset to register as online.
                 -1 ignores online state and initiates asset (default: -1)
+            lazy_loading: If activated, properties of the implemented submodel are only loaded after first reference.
 
         Raises:
             AssetNotFoundError: raised if Asset cannot be found
@@ -228,7 +232,8 @@ class AssetManager:
         # verified_submodels = self._get_submodel_schemata(submodels)
 
         proxy_asset = ProxyAsset(name, namespace, *submodels.values(), mode=Mode.CONSUMER,
-                                 communication_client=self.client, endpoint_name=self.endpoint_name)
+                                 communication_client=self.client, endpoint_name=self.endpoint_name,
+                                 lazy_loading=lazy_loading)
         if wait_seconds_until_online >= 0:
             online = proxy_asset.wait_for_online(wait_seconds_until_online)
             if not online:

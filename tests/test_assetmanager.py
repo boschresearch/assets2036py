@@ -45,12 +45,12 @@ class TestAssetManager(TestCase):
         mgr1 = AssetManager(HOST, PORT, NAMESPACE, "mgr1")
         mgr2 = AssetManager(HOST, PORT, NAMESPACE, "mgr2")
         mgr3 = AssetManager(HOST, PORT, NAMESPACE, "mgr3")
-        _asset1 = mgr1.create_asset(
-            "test_asset_123", "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
-        _asset2 = mgr2.create_asset(
-            "test_asset_123", "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
-        _asset3 = mgr3.create_asset(
-            "test_asset_123", "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
+        _asset1 = mgr1.create_asset("test_asset_123",
+                                    "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
+        _asset2 = mgr2.create_asset("test_asset_123",
+                                    "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
+        _asset3 = mgr3.create_asset("test_asset_123",
+                                    "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
 
         time.sleep(2)
         msgs = get_msgs_for_n_secs(f"{NAMESPACE}/+/_endpoint/online/#", 2)
@@ -81,8 +81,8 @@ class TestAssetManager(TestCase):
     def test_healthy_flag(self):
 
         mgr1 = AssetManager(HOST, PORT, NAMESPACE, "mgr1")
-        _asset = mgr1.create_asset(
-            "test_asset_123", "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
+        _asset = mgr1.create_asset("test_asset_123",
+                                   "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
         msgs = get_msgs_for_n_secs(f"{NAMESPACE}/mgr1/_endpoint/healthy/#", 2)
         self.assertTrue(len(msgs), 1)
         self.assertEqual(msgs[0].payload, b"false")
@@ -107,24 +107,24 @@ class TestAssetManager(TestCase):
 
     def test_create_asset_proxy(self):
         mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
-        _asset = mgr.create_asset(
-            "test_asset_123", "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
+        _asset = mgr.create_asset("test_asset_123",
+                                  "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
         asset_proxy = mgr.create_asset_proxy(NAMESPACE, "test_asset_123")
         self.assertIn("powerstate", dir(asset_proxy))
 
     def test_self_ping(self):
         # pylint: disable=protected-access
         mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
-        _asset = mgr.create_asset(
-            "test_asset_123", "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
+        _asset = mgr.create_asset("test_asset_123",
+                                  "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
         self.assertTrue(mgr._self_ping())
         mgr.disconnect()
         self.assertFalse(mgr._self_ping())
 
     def test_shutdown(self):
         mgr = AssetManager(HOST, PORT, NAMESPACE, "mgr")
-        _asset = mgr.create_asset(
-            "test_asset_123", "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
+        _asset = mgr.create_asset("test_asset_123",
+                                  "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
         mgr.set_healthy_callback(lambda: True)
         monitor_threads = [
             t for t in threading.enumerate() if t.name[:3] == "mgr"]
