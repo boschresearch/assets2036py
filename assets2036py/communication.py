@@ -28,7 +28,7 @@ from queue import Queue, Empty
 import paho.mqtt.client as mqtt
 from dateutil import tz
 
-from assets2036py import context
+from .utilities import context
 from assets2036py.exceptions import OperationTimeoutException, InvalidParameterException
 from inspect import signature
 
