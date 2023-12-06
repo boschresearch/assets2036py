@@ -12,9 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-'''
+"""
 Example for providing an Asset.
-'''
+"""
 import sys
 import time
 import logging
@@ -36,9 +36,9 @@ SUBMODEL_URL = "https://raw.githubusercontent.com/boschresearch/assets2036-submo
 
 
 class Light:
-    '''
+    """
     Emulate light, could be real driver or legacy interface
-    '''
+    """
 
     def __init__(self) -> None:
         self._light_state = False
@@ -56,9 +56,9 @@ class Light:
 
 
 class LightAdapter:
-    '''
+    """
     Connector between legacy light and assets2036
-    '''
+    """
 
     def __init__(self) -> None:
         mgr = AssetManager(BROKER_URL, BROKER_PORT, NAMESPACE, ENDPOINT)
@@ -71,9 +71,9 @@ class LightAdapter:
         self._lamp_1.light.bind_switch_light(self._switch_light)
 
     def _switch_light(self, state: bool) -> bool:
-        '''
+        """
         implementation of switch_light operation
-        '''
+        """
         if state:
             success = self._light.switch_on()
         else:

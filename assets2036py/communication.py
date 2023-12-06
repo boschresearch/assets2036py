@@ -325,7 +325,7 @@ class MQTTClient(CommunicationClient):
                 # support callbacks for full info as well as payload only
                 func = callback
                 # support for partials
-                if hasattr(callback,"func"):
+                if hasattr(callback, "func"):
                     func = callback.func
 
                 if len(signature(func).parameters) < 3:

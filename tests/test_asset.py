@@ -41,8 +41,8 @@ PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
 
 
 def create_client_and_ask(idx):
-    '''Helper function to test parallel operations
-    '''
+    """Helper function to test parallel operations
+    """
     mgr = AssetManager(HOST, PORT,
                        "test_arena2036", f"test_endpoint_{idx}")
     client = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.CONSUMER)
@@ -402,7 +402,8 @@ class TestAsset(TestCase):
         owner.simple_operation.bind_do_it(do_it)
         owner.simple_operation.bind_do_it(
             lambda: logger.debug("DOING IT Lambda_style"))
-        consumers = [mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.CONSUMER) for i in range(10)]
+        consumers = [mgr.create_asset("source", res_url + "simple_operation.json",
+                                      mode=Mode.CONSUMER) for _ in range(10)]
 
         for idx, c in enumerate(consumers):
             res = c.simple_operation.addnumbers(a=3 + idx, b=4 + idx)
@@ -530,16 +531,16 @@ class TestAsset(TestCase):
         mgr = AssetManager(HOST, PORT,
                            "test_arena2036", "test_endpoint_1")
         owner = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.OWNER)
-        adderDoer = AdderDoerClass()
-        owner.simple_operation.bind_addnumbers(adderDoer.addnumbers)
-        owner.simple_operation.bind_do_it(adderDoer.do_it)
+        adder_doer = AdderDoerClass()
+        owner.simple_operation.bind_addnumbers(adder_doer.addnumbers)
+        owner.simple_operation.bind_do_it(adder_doer.do_it)
 
         consumer = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.CONSUMER)
         consumer.simple_operation.addnumbers(a=5, b=3)
         consumer.simple_operation.do_it()
 
         time.sleep(2)
-        self.assertEqual(adderDoer.val, 9)
+        self.assertEqual(adder_doer.val, 9)
 
     def test_parallel_healthy_flag(self):
         # logging.getLogger("assets2036py").setLevel(logging.ERROR)
@@ -710,7 +711,6 @@ class TestAsset(TestCase):
         _ = sink.simpleevent.bool_happened.name
 
         self.assertTrue("bool_happened" in dir(sink.simpleevent))
-
 
     def test_lazy_load_properties(self):
         mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
