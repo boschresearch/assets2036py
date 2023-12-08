@@ -236,9 +236,10 @@ class MQTTClient(CommunicationClient):
         try:
             payload_obj = json.loads(payload)
             req_id = payload_obj["req_id"]
-            self._queues[req_id].put(payload_obj["resp"])
-        except KeyError as e:
-            logger.error("Received invalid payload: %s", e)
+            resp = payload_obj.get("resp", None)
+            self._queues[req_id].put(resp)
+        except KeyError:
+            logger.error("Missing 'req_id' in payload %s", payload)
         except json.JSONDecodeError as e:
             logger.error("Received invalid json: %s", e)
 
