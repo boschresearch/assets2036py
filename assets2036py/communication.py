@@ -146,7 +146,7 @@ class MQTTClient(CommunicationClient):
 
     def __init__(self, client_id):
         self._queues = defaultdict(Queue)
-        self.client = mqtt.Client(f"assets2036py_{client_id}_{uuid.uuid4().hex}", clean_session=True)
+        self.client = mqtt.Client(f"assets2036py_{client_id}_{uuid.uuid4().hex}", clean_session=False)
         self._executor = ThreadPoolExecutor(max_workers=10)
 
     def join(self, timeout=None):
