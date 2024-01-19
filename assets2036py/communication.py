@@ -167,7 +167,7 @@ class MQTTClient(CommunicationClient):
         self.client.unsubscribe(topic)
         return msgs
 
-    def unsubscribe(self, topic):
+    def unsubscribe(self, topic: str) -> None:
         self.client.unsubscribe(topic)
 
     def trigger_event(self, event, parameter):
@@ -227,6 +227,8 @@ class MQTTClient(CommunicationClient):
             response = self._queues[req_id].get(timeout=timeout)
             end = time.perf_counter()
             logger.debug("got response \"%s\" after %s seconds", response, end - start)
+            # Unsubscribe the topic once the response arrived
+            self.unsubscribe(topic=topic)
             return response
         except Empty:
             # pylint: disable=raise-missing-from
