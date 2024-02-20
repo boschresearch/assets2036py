@@ -147,14 +147,16 @@ class MQTTClient(CommunicationClient):
     def __init__(self, client_id):
         self._queues = defaultdict(Queue)
         self.client = mqtt.Client(
-            f"assets2036py_{client_id}_{uuid.uuid4().hex}", clean_session=True
+            mqtt.CallbackAPIVersion.VERSION2,
+            f"assets2036py_{client_id}_{uuid.uuid4().hex}",
+            clean_session=True,
         )
         self._executor = ThreadPoolExecutor(max_workers=10)
         self._subscriptions = {}
         self.on_connect(self._reconnect)
 
-    def _reconnect(self, client, userdata, flags, rc):
-        logger.debug("Reconnected with result code %s", rc)
+    def _reconnect(self, mqttc, obj, flags, reason_code, properties):
+        logger.debug("Reconnected with result code %s", reason_code)
         if self._subscriptions:
             for topic, callbacks in self._subscriptions.items():
                 for callback in callbacks:

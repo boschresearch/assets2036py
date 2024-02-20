@@ -26,6 +26,7 @@ pytest = "*"
 rope = "*"
 tox = "*"
 pytest-dotenv = "*"
+paho-mqtt-stubs = "*"
 
 [packages]
 paho-mqtt = "*"
