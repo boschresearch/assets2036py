@@ -24,7 +24,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='assets2036py',
-    version='0.1.3',
+    version='0.1.4',
     url='https://github.com/boschresearch/assets2036spy',
     license='BIOS',
     author='Daniel Ewert (CR/APT5)',
