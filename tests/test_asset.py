@@ -16,17 +16,17 @@
 import logging
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool
 from threading import Thread
 from unittest import TestCase
 
 from jsonschema import ValidationError
 
-from assets2036py import Asset, Mode, AssetManager
+from assets2036py import Asset, AssetManager, Mode
 from assets2036py.communication import MockClient
-from assets2036py.exceptions import NotWritableError, AssetNotOnlineError
-from .test_utils import get_msgs_for_n_secs, wipe_retained_msgs, res_url
+from assets2036py.exceptions import AssetNotOnlineError, NotWritableError
+
+from .test_utils import get_msgs_for_n_secs, res_url, wipe_retained_msgs
 
 logger = logging.getLogger(__name__)
 
@@ -41,58 +41,80 @@ PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
 
 
 def create_client_and_ask(idx):
-    """Helper function to test parallel operations
-    """
-    mgr = AssetManager(HOST, PORT,
-                       "test_arena2036", f"test_endpoint_{idx}")
-    client = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.CONSUMER)
+    """Helper function to test parallel operations"""
+    mgr = AssetManager(HOST, PORT, "test_arena2036", f"test_endpoint_{idx}")
+    client = mgr.create_asset(
+        "source", res_url + "simple_operation.json", mode=Mode.CONSUMER
+    )
     return client.simple_operation.addnumbers(a=0, b=idx)
 
 
 class TestAsset(TestCase):
-
     @classmethod
     def tearDownClass(cls):
         wipe_retained_msgs(HOST, "test_arena2036")
 
     def test_implement_sub_model_consumer(self):
-        a = Asset("simpleasset", "test_arena2036", res_url + "simplebool.json", mode=Mode.CONSUMER,
-                  communication_client=MockClient(), endpoint_name="test_endpoint_1")
+        a = Asset(
+            "simpleasset",
+            "test_arena2036",
+            res_url + "simplebool.json",
+            mode=Mode.CONSUMER,
+            communication_client=MockClient(),
+            endpoint_name="test_endpoint_1",
+        )
         self.assertTrue("simple_bool" in dir(a))
         self.assertTrue("switch" in dir(a.simple_bool))
         self.assertTrue("value" in dir(a.simple_bool.switch))
         topic = a.simple_bool.switch._get_topic()
-        self.assertEqual(
-            topic, "test_arena2036/simpleasset/simple_bool/switch")
+        self.assertEqual(topic, "test_arena2036/simpleasset/simple_bool/switch")
 
     def test_implement_sub_model_owner(self):
-        a = Asset("simpleasset", "test_arena2036", res_url + "simplebool.json", mode=Mode.OWNER,
-                  communication_client=MockClient(), endpoint_name="test_endpoint_1")
+        a = Asset(
+            "simpleasset",
+            "test_arena2036",
+            res_url + "simplebool.json",
+            mode=Mode.OWNER,
+            communication_client=MockClient(),
+            endpoint_name="test_endpoint_1",
+        )
         self.assertTrue("simple_bool" in dir(a))
         self.assertTrue("switch" in dir(a.simple_bool))
         self.assertTrue("value" in dir(a.simple_bool.switch))
         topic = a.simple_bool.switch._get_topic()
-        self.assertEqual(
-            topic, "test_arena2036/simpleasset/simple_bool/switch")
+        self.assertEqual(topic, "test_arena2036/simpleasset/simple_bool/switch")
 
     def test_put_value(self):
-        a = Asset("simpleasset", "test_arena2036", res_url + "simplebool.json", mode=Mode.OWNER,
-                  communication_client=MockClient(), endpoint_name="test_endpoint_1")
+        a = Asset(
+            "simpleasset",
+            "test_arena2036",
+            res_url + "simplebool.json",
+            mode=Mode.OWNER,
+            communication_client=MockClient(),
+            endpoint_name="test_endpoint_1",
+        )
         a.simple_bool.switch.value = True
         self.assertEqual(a.simple_bool.switch.value, True)
         a.simple_bool.switch.value = False
         self.assertEqual(a.simple_bool.switch.value, False)
 
     def test_load_from_unverified_ssl(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        source = mgr.create_asset("source",
-                                  "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json")
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        source = mgr.create_asset(
+            "source",
+            "https://arena2036-infrastructure.saz.bosch-si.com/arena2036_public/assets2036_submodels/raw/master/powerstate.json",
+        )
         source.powerstate.power_state.value = True
 
     def test_implement_complex_sub_model_consumer(self):
-        a = Asset("activeshuttle", "test_arena2036", res_url + "activeshuttle.json", mode=Mode.CONSUMER,
-                  communication_client=MockClient(), endpoint_name="test_endpoint_1")
+        a = Asset(
+            "activeshuttle",
+            "test_arena2036",
+            res_url + "activeshuttle.json",
+            mode=Mode.CONSUMER,
+            communication_client=MockClient(),
+            endpoint_name="test_endpoint_1",
+        )
 
         self.assertTrue("active_shuttle" in dir(a))
         self.assertTrue("pose" in dir(a.active_shuttle))
@@ -102,14 +124,20 @@ class TestAsset(TestCase):
         self.assertIsInstance(a.active_shuttle.pose.value, type(None))
 
         def evil_func():
-            a.active_shuttle.pose.value = {'x': 5.7, 'y': 3.5, 'z': 0.1}
+            a.active_shuttle.pose.value = {"x": 5.7, "y": 3.5, "z": 0.1}
 
         self.assertRaises(NotWritableError, evil_func)
         self.assertIsInstance(a.active_shuttle.pose.value, type(None))
 
     def test_all_property_types(self):
-        a = Asset("PropertyTest", "test_arena2036", res_url + "all_property_model.json", mode=Mode.OWNER,
-                  communication_client=MockClient(), endpoint_name="test_endpoint_1")
+        a = Asset(
+            "PropertyTest",
+            "test_arena2036",
+            res_url + "all_property_model.json",
+            mode=Mode.OWNER,
+            communication_client=MockClient(),
+            endpoint_name="test_endpoint_1",
+        )
         a.all_properties.a_switch.value = True
         self.assertEqual(a.all_properties.a_switch.value, True)
         a.all_properties.a_float.value = 4.2
@@ -117,8 +145,7 @@ class TestAsset(TestCase):
         a.all_properties.a_text.value = "Hullo"
         self.assertEqual(a.all_properties.a_text.value, "Hullo")
         a.all_properties.an_object.value = {"x": 5, "y": 6}
-        self.assertDictEqual(
-            a.all_properties.an_object.value, {"x": 5, "y": 6})
+        self.assertDictEqual(a.all_properties.an_object.value, {"x": 5, "y": 6})
         a.all_properties.a_list.value = [1, 2, 3, "a"]
         self.assertListEqual(a.all_properties.a_list.value, [1, 2, 3, "a"])
 
@@ -130,8 +157,14 @@ class TestAsset(TestCase):
         self.assertEqual(a.all_properties.an_int.value, 42)
 
     def test_type_validation(self):
-        a = Asset("PropertyTest", "test_arena2036", res_url + "all_property_model.json", mode=Mode.OWNER,
-                  communication_client=MockClient(), endpoint_name="test_endpoint_1")
+        a = Asset(
+            "PropertyTest",
+            "test_arena2036",
+            res_url + "all_property_model.json",
+            mode=Mode.OWNER,
+            communication_client=MockClient(),
+            endpoint_name="test_endpoint_1",
+        )
         with self.assertRaises(ValidationError):
             a.all_properties.a_switch.value = 42
         self.assertEqual(a.all_properties.a_switch.value, None)
@@ -157,8 +190,14 @@ class TestAsset(TestCase):
             a.all_properties.a_list.value = {"x": 5, "z": 6}
 
     def test_implement_complex_sub_model_owner(self):
-        a = Asset("activeshuttle", "test_arena2036", res_url + "activeshuttle.json", mode=Mode.OWNER,
-                  communication_client=MockClient(), endpoint_name="test_endpoint_1")
+        a = Asset(
+            "activeshuttle",
+            "test_arena2036",
+            res_url + "activeshuttle.json",
+            mode=Mode.OWNER,
+            communication_client=MockClient(),
+            endpoint_name="test_endpoint_1",
+        )
 
         self.assertTrue("active_shuttle" in dir(a))
         self.assertTrue("pose" in dir(a.active_shuttle))
@@ -166,10 +205,11 @@ class TestAsset(TestCase):
         self.assertTrue("waypoints" in dir(a.active_shuttle))
 
     def test_communication(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
         source = mgr.create_asset("source", res_url + "all_property_model.json")
-        sink = mgr.create_asset("source", res_url + "all_property_model.json", mode=Mode.CONSUMER)
+        sink = mgr.create_asset(
+            "source", res_url + "all_property_model.json", mode=Mode.CONSUMER
+        )
 
         time.sleep(2)
         source.all_properties.a_switch.value = True
@@ -184,17 +224,14 @@ class TestAsset(TestCase):
 
         self.assertEqual(True, sink.all_properties.a_switch.value)
         self.assertEqual(42, sink.all_properties.an_int.value)
-        self.assertAlmostEqual(
-            4.2, sink.all_properties.a_float.value, places=5)
+        self.assertAlmostEqual(4.2, sink.all_properties.a_float.value, places=5)
         self.assertEqual("Hullo", sink.all_properties.a_text.value)
-        self.assertDictEqual(
-            {"x": 5, "y": 6}, sink.all_properties.an_object.value)
+        self.assertDictEqual({"x": 5, "y": 6}, sink.all_properties.an_object.value)
         self.assertListEqual([1, 2, 3, 4], sink.all_properties.a_list.value)
         mgr.disconnect()
 
     def test_delete(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
         source = mgr.create_asset("deletetest", res_url + "all_property_model.json")
 
         time.sleep(2)
@@ -217,8 +254,7 @@ class TestAsset(TestCase):
         mgr.disconnect()
 
     def test_retained_communication(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
         source = mgr.create_asset("source", res_url + "all_property_model.json")
 
         time.sleep(2)
@@ -229,25 +265,28 @@ class TestAsset(TestCase):
         source.all_properties.an_object.value = {"x": 5, "y": 6}
         source.all_properties.a_list.value = [1, 2, 3, 4]
 
-        sink = mgr.create_asset("source", res_url + "all_property_model.json", mode=Mode.CONSUMER)
+        sink = mgr.create_asset(
+            "source", res_url + "all_property_model.json", mode=Mode.CONSUMER
+        )
 
         time.sleep(2)
 
         self.assertEqual(True, sink.all_properties.a_switch.value)
         self.assertEqual(42, sink.all_properties.an_int.value)
-        self.assertAlmostEqual(
-            4.2, sink.all_properties.a_float.value, places=5)
+        self.assertAlmostEqual(4.2, sink.all_properties.a_float.value, places=5)
         self.assertEqual("Hullo", sink.all_properties.a_text.value)
-        self.assertDictEqual(
-            {"x": 5, "y": 6}, sink.all_properties.an_object.value)
+        self.assertDictEqual({"x": 5, "y": 6}, sink.all_properties.an_object.value)
         self.assertListEqual([1, 2, 3, 4], sink.all_properties.a_list.value)
         mgr.disconnect()
 
     def test_communication_updates(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        source = mgr.create_asset("source", res_url + "all_property_model.json", mode=Mode.OWNER)
-        sink = mgr.create_asset("source", res_url + "all_property_model.json", mode=Mode.CONSUMER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        source = mgr.create_asset(
+            "source", res_url + "all_property_model.json", mode=Mode.OWNER
+        )
+        sink = mgr.create_asset(
+            "source", res_url + "all_property_model.json", mode=Mode.CONSUMER
+        )
 
         returns = []
 
@@ -262,35 +301,42 @@ class TestAsset(TestCase):
             source.all_properties.an_int.value = idx
         time.sleep(3)
         logger.debug(returns)
-        self.assertAlmostEqual(10, len(returns),
-                               delta=2)  # VerneMQ sends the last received message twice? --> Sometimes 11 msgs...
+        self.assertAlmostEqual(
+            10, len(returns), delta=2
+        )  # VerneMQ sends the last received message twice? --> Sometimes 11 msgs...
 
     def test_submodel_meta_property(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
         asset1 = mgr.create_asset("asset", res_url + "simplebool.json")
         self.assertTrue("simple_bool" in dir(asset1))
         self.assertTrue("_meta" in dir(asset1.simple_bool))
-        self.assertEqual("test_arena2036/test_endpoint_1",
-                         asset1.simple_bool._meta.value["source"])
-        self.assertEqual(f'{res_url}simplebool.json',
-                         asset1.simple_bool._meta.value["submodel_url"])
+        self.assertEqual(
+            "test_arena2036/test_endpoint_1", asset1.simple_bool._meta.value["source"]
+        )
+        self.assertEqual(
+            f"{res_url}simplebool.json", asset1.simple_bool._meta.value["submodel_url"]
+        )
 
-        asset2 = mgr.create_asset("asset", res_url + "simplebool.json", mode=Mode.CONSUMER)
+        asset2 = mgr.create_asset(
+            "asset", res_url + "simplebool.json", mode=Mode.CONSUMER
+        )
         self.assertTrue("simple_bool" in dir(asset2))
         self.assertFalse("_meta" in dir(asset2.simple_bool))
 
     def test_simple_operation(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        sink = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.CONSUMER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        sink = mgr.create_asset(
+            "source", res_url + "simple_operation.json", mode=Mode.CONSUMER
+        )
         self.assertIn("simple_operation", dir(sink))
         self.assertIn("do_it", dir(sink.simple_operation))
         self.assertTrue(callable(sink.simple_operation.do_it))
         self.assertIn("addnumbers", dir(sink.simple_operation))
         self.assertTrue(callable(sink.simple_operation.addnumbers))
 
-        owner = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.OWNER)
+        owner = mgr.create_asset(
+            "source", res_url + "simple_operation.json", mode=Mode.OWNER
+        )
         self.assertIn("bind_do_it", dir(owner.simple_operation))
         self.assertIn("bind_addnumbers", dir(owner.simple_operation))
 
@@ -307,8 +353,7 @@ class TestAsset(TestCase):
         owner.simple_operation.bind_concat(do_concat)
         owner.simple_operation.bind_addnumbers(do_addnumbers)
         owner.simple_operation.bind_do_it(do_it)
-        owner.simple_operation.bind_do_it(
-            lambda: logger.debug("DOING IT Lambda_style"))
+        owner.simple_operation.bind_do_it(lambda: logger.debug("DOING IT Lambda_style"))
 
         time.sleep(1)
 
@@ -319,10 +364,13 @@ class TestAsset(TestCase):
         self.assertEqual("helloworld", res2)
 
     def test_multi_parameter_operation(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        caller = mgr.create_asset("source", res_url + "multi_param_operation.json", mode=Mode.CONSUMER)
-        owner = mgr.create_asset("source", res_url + "multi_param_operation.json", mode=Mode.OWNER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        caller = mgr.create_asset(
+            "source", res_url + "multi_param_operation.json", mode=Mode.CONSUMER
+        )
+        owner = mgr.create_asset(
+            "source", res_url + "multi_param_operation.json", mode=Mode.OWNER
+        )
 
         def merge_into_list_samename(first, second, third):
             return [first, second, third]
@@ -339,20 +387,26 @@ class TestAsset(TestCase):
         time.sleep(1)
 
         res1 = caller.multiparam.multiparam_1(
-            first=1, second="hello", third={"a": 1}, timeout=3)
+            first=1, second="hello", third={"a": 1}, timeout=3
+        )
         res2 = caller.multiparam.multiparam_2(
-            first=1, second="hello", third={"a": 1}, timeout=3)
+            first=1, second="hello", third={"a": 1}, timeout=3
+        )
         res3 = caller.multiparam.multiparam_3(
-            first=1, second="hello", third={"a": 1}, timeout=3)
+            first=1, second="hello", third={"a": 1}, timeout=3
+        )
         self.assertEqual([1, "hello", {"a": 1}], res1)
         self.assertEqual([1, "hello", {"a": 1}], res2)
         self.assertEqual([1, "hello", {"a": 1}], res3)
 
     def test_object_operation(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        sink = mgr.create_asset("source", res_url + "object_operation.json", mode=Mode.CONSUMER)
-        owner = mgr.create_asset("source", res_url + "object_operation.json", mode=Mode.OWNER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        sink = mgr.create_asset(
+            "source", res_url + "object_operation.json", mode=Mode.CONSUMER
+        )
+        owner = mgr.create_asset(
+            "source", res_url + "object_operation.json", mode=Mode.OWNER
+        )
 
         def do_split(a):
             return {"firstletter": a[0], "lastletter": a[-1]}
@@ -365,10 +419,13 @@ class TestAsset(TestCase):
         self.assertEqual({"firstletter": "I", "lastletter": "O"}, res)
 
     def test_array_operation(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        sink = mgr.create_asset("source", res_url + "array_operation.json", mode=Mode.CONSUMER)
-        owner = mgr.create_asset("source", res_url + "array_operation.json", mode=Mode.OWNER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        sink = mgr.create_asset(
+            "source", res_url + "array_operation.json", mode=Mode.CONSUMER
+        )
+        owner = mgr.create_asset(
+            "source", res_url + "array_operation.json", mode=Mode.OWNER
+        )
 
         def do_give_array(length):
             return [1] * length
@@ -381,9 +438,10 @@ class TestAsset(TestCase):
         self.assertEqual([1, 1], res)
 
     def testMultiOperationRequests(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        owner = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.OWNER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        owner = mgr.create_asset(
+            "source", res_url + "simple_operation.json", mode=Mode.OWNER
+        )
         self.assertIn("bind_do_it", dir(owner.simple_operation))
         self.assertIn("bind_addnumbers", dir(owner.simple_operation))
 
@@ -400,19 +458,23 @@ class TestAsset(TestCase):
         owner.simple_operation.bind_concat(do_concat)
         owner.simple_operation.bind_addnumbers(do_addnumbers)
         owner.simple_operation.bind_do_it(do_it)
-        owner.simple_operation.bind_do_it(
-            lambda: logger.debug("DOING IT Lambda_style"))
-        consumers = [mgr.create_asset("source", res_url + "simple_operation.json",
-                                      mode=Mode.CONSUMER) for _ in range(10)]
+        owner.simple_operation.bind_do_it(lambda: logger.debug("DOING IT Lambda_style"))
+        consumers = [
+            mgr.create_asset(
+                "source", res_url + "simple_operation.json", mode=Mode.CONSUMER
+            )
+            for _ in range(10)
+        ]
 
         for idx, c in enumerate(consumers):
             res = c.simple_operation.addnumbers(a=3 + idx, b=4 + idx)
             self.assertEqual(res, 3 + idx + 4 + idx)
 
     def testParallelOperationRequests(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        owner = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.OWNER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        owner = mgr.create_asset(
+            "source", res_url + "simple_operation.json", mode=Mode.OWNER
+        )
         self.assertIn("bind_do_it", dir(owner.simple_operation))
         self.assertIn("bind_addnumbers", dir(owner.simple_operation))
 
@@ -429,18 +491,20 @@ class TestAsset(TestCase):
         owner.simple_operation.bind_concat(do_concat)
         owner.simple_operation.bind_addnumbers(do_addnumbers)
         owner.simple_operation.bind_do_it(do_it)
-        owner.simple_operation.bind_do_it(
-            lambda: logger.debug("DOING IT Lambda_style"))
+        owner.simple_operation.bind_do_it(lambda: logger.debug("DOING IT Lambda_style"))
 
         with Pool(10) as p:
             result = p.map(create_client_and_ask, list(range(10)))
             self.assertEqual(result, list(range(10)))
 
     def testEvents(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        eventer = mgr.create_asset("eventer", res_url + "simpleevent.json", mode=Mode.OWNER)
-        listener = mgr.create_asset("eventer", res_url + "simpleevent.json", mode=Mode.CONSUMER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        eventer = mgr.create_asset(
+            "eventer", res_url + "simpleevent.json", mode=Mode.OWNER
+        )
+        listener = mgr.create_asset(
+            "eventer", res_url + "simpleevent.json", mode=Mode.CONSUMER
+        )
 
         cb_counter = []
 
@@ -459,19 +523,21 @@ class TestAsset(TestCase):
 
         eventer.simpleevent.bool_happened(bool_payload=True)
         eventer.simpleevent.string_happened(string_payload="it'samee")
-        eventer.simpleevent.object_happened(
-            object_payload={"x": 42.1, "y": 3.14159})
+        eventer.simpleevent.object_happened(object_payload={"x": 42.1, "y": 3.14159})
 
         time.sleep(5)
         logger.debug("Waited 5 secs")
         self.assertEqual(len(cb_counter), 3)
 
     def test_events_named_callbacks(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        eventer = mgr.create_asset("eventer", res_url + "simpleevent.json", mode=Mode.OWNER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        eventer = mgr.create_asset(
+            "eventer", res_url + "simpleevent.json", mode=Mode.OWNER
+        )
 
-        listener2 = mgr.create_asset("eventer", res_url + "simpleevent.json", mode=Mode.CONSUMER)
+        listener2 = mgr.create_asset(
+            "eventer", res_url + "simpleevent.json", mode=Mode.CONSUMER
+        )
 
         cb_counter = []
 
@@ -492,18 +558,20 @@ class TestAsset(TestCase):
 
         eventer.simpleevent.bool_happened(bool_payload=True)
         eventer.simpleevent.string_happened(string_payload="it'samee")
-        eventer.simpleevent.object_happened(
-            object_payload={"x": 42.1, "y": 3.14159})
+        eventer.simpleevent.object_happened(object_payload={"x": 42.1, "y": 3.14159})
         time.sleep(3)
 
         self.assertEqual(len(cb_counter), 3)
 
     def test_empty_event(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        eventer = mgr.create_asset("eventer", res_url + "simpleevent.json", mode=Mode.OWNER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        eventer = mgr.create_asset(
+            "eventer", res_url + "simpleevent.json", mode=Mode.OWNER
+        )
 
-        listener2 = mgr.create_asset("eventer", res_url + "simpleevent.json", mode=Mode.CONSUMER)
+        listener2 = mgr.create_asset(
+            "eventer", res_url + "simpleevent.json", mode=Mode.CONSUMER
+        )
         callback_called = False
 
         def empty_callback(_ts):
@@ -516,7 +584,6 @@ class TestAsset(TestCase):
         self.assertTrue(callback_called)
 
     def test_class_callbacks(self):
-
         class AdderDoerClass:
             def __init__(self):
                 self.val = 0
@@ -528,84 +595,64 @@ class TestAsset(TestCase):
             def do_it(self):
                 self.val += 1
 
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        owner = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.OWNER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        owner = mgr.create_asset(
+            "source", res_url + "simple_operation.json", mode=Mode.OWNER
+        )
         adder_doer = AdderDoerClass()
         owner.simple_operation.bind_addnumbers(adder_doer.addnumbers)
         owner.simple_operation.bind_do_it(adder_doer.do_it)
 
-        consumer = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.CONSUMER)
+        consumer = mgr.create_asset(
+            "source", res_url + "simple_operation.json", mode=Mode.CONSUMER
+        )
         consumer.simple_operation.addnumbers(a=5, b=3)
         consumer.simple_operation.do_it()
 
         time.sleep(2)
         self.assertEqual(adder_doer.val, 9)
 
-    def test_parallel_healthy_flag(self):
-        # logging.getLogger("assets2036py").setLevel(logging.ERROR)
-        # init
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        provider = mgr.create_asset("provider", res_url + "simple_operation.json", mode=Mode.OWNER)
-        caller = mgr.create_asset("provider", res_url + "simple_operation.json", mode=Mode.CONSUMER)
-
-        def addnumbers(a, b):
-            logger.debug("addnumbers called, waiting 5 secs..")
-            time.sleep(5)
-            logger.debug("Waited enough, returning.")
-            return a + b
-
-        provider.simple_operation.bind_addnumbers(addnumbers)
-
-        # cause external operation call
-        with ThreadPoolExecutor(max_workers=3) as pool:
-            futures = [pool.submit(
-                caller.simple_operation.addnumbers, a=i, b=3) for i in range(10)]
-
-            logger.debug("submitted calls!")
-            # set healthy flag during operation execution
-            while not all(f.done() for f in futures):
-                time.sleep(1)
-                mgr.healthy = True
-                logger.debug("set the healthy flag true")
-                time.sleep(1)
-                mgr.healthy = False
-                logger.debug("set the healthy flag false")
-            for idx, future in enumerate(futures):
-                self.assertEqual(future.result(), idx + 3)
-            logger.debug("assertions were met!")
-
     def test_integer_numbers(self):
         def add_anything(a, b):
             return a + b
 
-        mgr = AssetManager(HOST, PORT,
-                           "test_num_int", "test_num_int")
-        asset = mgr.create_asset("test_num_int", res_url + "integer_number_operation.json")
+        mgr = AssetManager(HOST, PORT, "test_num_int", "test_num_int")
+        asset = mgr.create_asset(
+            "test_num_int", res_url + "integer_number_operation.json"
+        )
         asset.simple_operation.bind_addintegers(add_anything)
         asset.simple_operation.bind_addnumbers(add_anything)
 
         asset_proxy = mgr.create_asset_proxy("test_num_int", "test_num_int")
         self.assertEqual(asset_proxy.simple_operation.addintegers(a=2, b=2), 4)
-        self.assertEqual(
-            asset_proxy.simple_operation.addnumbers(a=2.0, b=2.0), 4.0)
+        self.assertEqual(asset_proxy.simple_operation.addnumbers(a=2.0, b=2.0), 4.0)
 
     def test_different_namespaces(self):
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
         d1_a1 = mgr.create_asset("d1_a1", res_url + "simpleint.json", namespace="d1")
         d1_a2 = mgr.create_asset("d1_a2", res_url + "simpleint.json", namespace="d1")
         d2_a1 = mgr.create_asset("d2_a1", res_url + "simpleint.json", namespace="d2")
         d2_a2 = mgr.create_asset("d2_a2", res_url + "simpleint.json", namespace="d2")
         inherit_a2 = mgr.create_asset("i_a2", res_url + "simpleint.json")
 
-        d1_a1_c = mgr.create_asset("d1_a1", res_url + "simpleint.json", mode=Mode.CONSUMER, namespace="d1")
-        d1_a2_c = mgr.create_asset("d1_a2", res_url + "simpleint.json", mode=Mode.CONSUMER, namespace="d1")
-        d2_a1_c = mgr.create_asset("d2_a1", res_url + "simpleint.json", mode=Mode.CONSUMER, namespace="d2")
-        d2_a2_c = mgr.create_asset("d2_a2", res_url + "simpleint.json", mode=Mode.CONSUMER, namespace="d2")
-        explicit_a2_c = mgr.create_asset("i_a2", res_url + "simpleint.json", mode=Mode.CONSUMER,
-                                         namespace="test_arena2036")
+        d1_a1_c = mgr.create_asset(
+            "d1_a1", res_url + "simpleint.json", mode=Mode.CONSUMER, namespace="d1"
+        )
+        d1_a2_c = mgr.create_asset(
+            "d1_a2", res_url + "simpleint.json", mode=Mode.CONSUMER, namespace="d1"
+        )
+        d2_a1_c = mgr.create_asset(
+            "d2_a1", res_url + "simpleint.json", mode=Mode.CONSUMER, namespace="d2"
+        )
+        d2_a2_c = mgr.create_asset(
+            "d2_a2", res_url + "simpleint.json", mode=Mode.CONSUMER, namespace="d2"
+        )
+        explicit_a2_c = mgr.create_asset(
+            "i_a2",
+            res_url + "simpleint.json",
+            mode=Mode.CONSUMER,
+            namespace="test_arena2036",
+        )
 
         d1_a1.simpleint.num.value = 42
         d2_a1.simpleint.num.value = 42
@@ -624,11 +671,14 @@ class TestAsset(TestCase):
     def test_operation_context(self):
         from assets2036py import context
 
-        mgr = AssetManager(HOST, PORT,
-                           "test_arena2036", "test_endpoint_1")
-        sink = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.CONSUMER)
+        mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
+        sink = mgr.create_asset(
+            "source", res_url + "simple_operation.json", mode=Mode.CONSUMER
+        )
 
-        owner = mgr.create_asset("source", res_url + "simple_operation.json", mode=Mode.OWNER)
+        owner = mgr.create_asset(
+            "source", res_url + "simple_operation.json", mode=Mode.OWNER
+        )
 
         def do_addnumbers(a, b):
             req_id = context.req_id
@@ -690,8 +740,7 @@ class TestAsset(TestCase):
         time.sleep(1)
 
         def create_proxy():
-            mgr2 = AssetManager(
-                HOST, PORT, "test_arena2036", "test_endpoint_2")
+            mgr2 = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_2")
             asset_proxy = mgr2.create_asset_proxy("test_arena2036", "test_asset", 3)
             return True
 
@@ -715,7 +764,12 @@ class TestAsset(TestCase):
     def test_lazy_load_properties(self):
         mgr = AssetManager(HOST, PORT, "test_arena2036", "test_endpoint_1")
         source = mgr.create_asset("source", res_url + "all_property_model.json")
-        sink = mgr.create_asset("source", res_url + "all_property_model.json", mode=Mode.CONSUMER, lazy_loading=True)
+        sink = mgr.create_asset(
+            "source",
+            res_url + "all_property_model.json",
+            mode=Mode.CONSUMER,
+            lazy_loading=True,
+        )
 
         # Set the properties in the source node
         source.all_properties.a_switch.value = True

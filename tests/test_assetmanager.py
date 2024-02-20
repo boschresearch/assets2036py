@@ -15,11 +15,13 @@
 
 import json
 import logging
+import os
 import threading
 import time
-import os
 from unittest import TestCase
+
 from assets2036py import AssetManager
+
 from .test_utils import get_msgs_for_n_secs, wipe_retained_msgs
 
 logger = logging.getLogger(__name__)
@@ -31,7 +33,6 @@ NAMESPACE = "test_assetmgr_on_off_arena2036"
 
 
 class TestAssetManager(TestCase):
-
     @classmethod
     def tearDownClass(cls):
         wipe_retained_msgs(HOST, NAMESPACE)
@@ -44,12 +45,18 @@ class TestAssetManager(TestCase):
         mgr1 = AssetManager(HOST, PORT, NAMESPACE, "mgr1")
         mgr2 = AssetManager(HOST, PORT, NAMESPACE, "mgr2")
         mgr3 = AssetManager(HOST, PORT, NAMESPACE, "mgr3")
-        _asset1 = mgr1.create_asset("test_asset_123",
-                                    "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
-        _asset2 = mgr2.create_asset("test_asset_123",
-                                    "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
-        _asset3 = mgr3.create_asset("test_asset_123",
-                                    "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
+        _asset1 = mgr1.create_asset(
+            "test_asset_123",
+            "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json",
+        )
+        _asset2 = mgr2.create_asset(
+            "test_asset_123",
+            "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json",
+        )
+        _asset3 = mgr3.create_asset(
+            "test_asset_123",
+            "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json",
+        )
 
         time.sleep(2)
         msgs = get_msgs_for_n_secs(f"{NAMESPACE}/+/_endpoint/online/#", 2)
@@ -79,8 +86,10 @@ class TestAssetManager(TestCase):
 
     def test_healthy_flag(self):
         mgr1 = AssetManager(HOST, PORT, NAMESPACE, "mgr1")
-        _asset = mgr1.create_asset("test_asset_123",
-                                   "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json")
+        _asset = mgr1.create_asset(
+            "test_asset_123",
+            "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/location.json",
+        )
         msgs = get_msgs_for_n_secs(f"{NAMESPACE}/mgr1/_endpoint/healthy/#", 2)
         self.assertTrue(len(msgs), 1)
         self.assertEqual(msgs[0].payload, b"false")
