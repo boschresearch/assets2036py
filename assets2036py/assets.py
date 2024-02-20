@@ -24,7 +24,9 @@ from enum import Enum
 from json import JSONDecodeError
 from numbers import Number
 from os import path
+
 from typing import Any, Callable, Union
+
 from urllib.request import urlopen
 
 import jsonschema
@@ -381,8 +383,10 @@ class SubModel:
             new_op = BindableOperation(name, self, schema)
             setattr(self, "bind_" + sanitize(name), new_op.bind)
 
+
     def _create_property_attribute(self, name: str, schema: dict, mode: Mode)\
             -> Union[ReadOnlyProperty, WritableProperty]:
+
         """
         Create a property instance and attach it to the submodel as its attribute.
         Args:
@@ -403,7 +407,9 @@ class SubModel:
         setattr(self, sanitize(name), new_prop)
         return new_prop
 
+
     def _create_event_attribute(self, name: str, schema: dict, mode: Mode) -> Union[SubscribableEvent, Callable]:
+
         """
         Create an event instance and attach it to the submodel as its attribute.
         Args:

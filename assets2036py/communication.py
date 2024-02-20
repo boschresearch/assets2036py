@@ -23,6 +23,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+
 from inspect import signature
 from queue import Empty, Queue
 
@@ -146,11 +147,13 @@ class MockClient(CommunicationClient):
 class MQTTClient(CommunicationClient):
     def __init__(self, client_id):
         self._queues = defaultdict(Queue)
+
         self.client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2,
             f"assets2036py_{client_id}_{uuid.uuid4().hex}",
             clean_session=True,
         )
+
         self._executor = ThreadPoolExecutor(max_workers=10)
         self._subscriptions = {}
         self.on_connect(self._reconnect)
@@ -232,14 +235,17 @@ class MQTTClient(CommunicationClient):
         self.publish(
             operation + "/REQ", json.dumps(payload), retain=False
         )  # Don't resend method invocations!
+
         logger.debug("%s invoked with payload %s", operation, payload)
         try:
             start = time.perf_counter()
             response = self._queues[req_id].get(timeout=timeout)
             end = time.perf_counter()
+
             logger.debug('got response "%s" after %s seconds', response, end - start)
             # Unsubscribe the topic once the response arrived
             self.unsubscribe(topic=topic)
+
             return response
         except Empty:
             # pylint: disable=raise-missing-from
@@ -265,10 +271,12 @@ class MQTTClient(CommunicationClient):
                 context.set("req_id", req_id)
                 res = cb(payload_obj["params"])
                 context.free()
+
                 response = {"req_id": req_id, "resp": res}
                 self.publish(
                     operation + "/RESP", json.dumps(response), retain=False
                 )  # Don't resend results
+
             except InvalidParameterException as e:
                 logger.error("Callback got invalid parameters: %s", e)
             except KeyError as e:
@@ -278,6 +286,7 @@ class MQTTClient(CommunicationClient):
             except TypeError as e:
                 logger.error("Callback got wrong number of parameters: %s", e)
             except:
+
                 logger.error(
                     " Exception occurred during callback execution:\n %s",
                     traceback.format_exc(),
@@ -287,6 +296,7 @@ class MQTTClient(CommunicationClient):
             operation + "/REQ",
             lambda payload: self._executor.submit(callback_func, payload),
         )
+
 
     def subscribe_event(self, event, callback):
         def callback_func(payload):
@@ -305,6 +315,7 @@ class MQTTClient(CommunicationClient):
             except TypeError as e:
                 logger.error("Callback got wrong number of parameters: %s", e)
             except:
+
                 logger.error(
                     " Exception occurred during callback execution:\n%s",
                     traceback.format_exc(),
@@ -313,6 +324,7 @@ class MQTTClient(CommunicationClient):
         self.subscribe(
             event, lambda payload: self._executor.submit(callback_func, payload)
         )
+
 
     def disconnect(self):
         # pylint: disable=protected-access
@@ -323,6 +335,7 @@ class MQTTClient(CommunicationClient):
                 self.client._will_payload.decode(),
                 retain=True,
             )
+
         self.client.disconnect()
         self.client.loop_stop()
 
@@ -336,19 +349,23 @@ class MQTTClient(CommunicationClient):
         self.client.on_message = cb
 
     def connect(self, **config):
+
         self.client.will_set(
             f"{config['namespace']}/{config['endpoint_name']}/_endpoint/online",
             "false",
             retain=True,
         )
+
         self.client.connect(config["host"], config["port"], keepalive=10)
         self.client.loop_start()
 
     def publish(self, topic, payload, **config):
         logger.debug("Sending %s to %s", payload, topic)
+
         self.client.publish(
             topic, payload, config.get("qos", 2), config.get("retain", True)
         )
+
 
     def subscribe(self, topic, callback):
         def callback_func(client, userdata, message):
@@ -374,6 +391,7 @@ class MQTTClient(CommunicationClient):
         self.client.message_callback_add(
             topic, lambda c, u, m: self._executor.submit(callback_func, c, u, m)
         )
+
         self.client.subscribe(topic, 2)
         logger.debug("Subscribed to %s", topic)
 
