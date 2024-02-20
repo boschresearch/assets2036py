@@ -14,11 +14,13 @@
 # limitations under the License.
 
 import logging
-import time
 import os
+import time
 from os import path
 from urllib.request import pathname2url
+
 import paho.mqtt.client as mqtt
+
 logger = logging.getLogger(__name__)
 
 res_path = path.abspath(path.dirname(__file__)) + "/resources/"
@@ -30,14 +32,13 @@ def get_msgs_for_n_secs(topic, seconds, host=HOST):
     msgs = []
 
     def _message_callback(_client, _userdata, message):
-        logger.debug("Callback received %s on %s",
-                     message.payload, message.topic)
+        logger.debug("Callback received %s on %s", message.payload, message.topic)
         msgs.append(message)
 
-    def _on_connect(client, _userdata, _flags, _rc):
+    def _on_connect(client, _userdata, _flags, _reason_code, _properties):
         client.subscribe(topic)
 
-    client = mqtt.Client()
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_message = _message_callback
     client.on_connect = _on_connect
     client.connect(host)
@@ -49,18 +50,17 @@ def get_msgs_for_n_secs(topic, seconds, host=HOST):
 
 
 def wipe_retained_msgs(host, namespace=None, seconds=3):
-
     def _message_callback(client, _userdata, message):
-        if message.payload != b'':
+        if message.payload != b"":
             logger.debug("Wiping %s from %s", message.payload, message.topic)
             client.publish(message.topic, "", retain=True)
 
-    def _on_connect(client, _userdata, _flags, _rc):
+    def _on_connect(client, _userdata, _flags, _reason_code, _properties):
         topic = namespace + "/#" if namespace else "#"
         logger.debug("subscribing to %s", topic)
         client.subscribe(topic)
 
-    client = mqtt.Client()
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_message = _message_callback
     client.on_connect = _on_connect
     client.connect(host)

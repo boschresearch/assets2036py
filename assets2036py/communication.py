@@ -23,12 +23,16 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from queue import Queue, Empty
+
+from inspect import signature
+from queue import Empty, Queue
+
 import paho.mqtt.client as mqtt
 from dateutil import tz
+
+from assets2036py.exceptions import InvalidParameterException, OperationTimeoutException
+
 from .utilities import context
-from assets2036py.exceptions import OperationTimeoutException, InvalidParameterException
-from inspect import signature
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +50,6 @@ def create_submodel_regexp(namespace, submodelname):
 
 
 class CommunicationClient(ABC):
-
     @abstractmethod
     def connect(self, **config):
         pass
@@ -101,7 +104,6 @@ class CommunicationClient(ABC):
 
 
 class MockClient(CommunicationClient):
-
     def subscribe_event(self, event, callback):
         pass
 
@@ -143,11 +145,27 @@ class MockClient(CommunicationClient):
 
 
 class MQTTClient(CommunicationClient):
-
     def __init__(self, client_id):
         self._queues = defaultdict(Queue)
-        self.client = mqtt.Client(f"assets2036py_{client_id}_{uuid.uuid4().hex}", clean_session=False)
+
+        self.client = mqtt.Client(
+            mqtt.CallbackAPIVersion.VERSION2,
+            f"assets2036py_{client_id}_{uuid.uuid4().hex}",
+            clean_session=True,
+        )
+
         self._executor = ThreadPoolExecutor(max_workers=10)
+        self._subscriptions = {}
+        self.on_connect(self._reconnect)
+
+    def _reconnect(self, mqttc, obj, flags, reason_code, properties):
+        logger.debug("Reconnected with result code %s", reason_code)
+        if self._subscriptions:
+            for topic, callbacks in self._subscriptions.items():
+                for callback in callbacks:
+                    self.client.message_callback_add(topic, callback)
+                self.client.subscribe(topic, 2)
+                logger.debug("Resubscribed to %s", topic)
 
     def join(self, timeout=None):
         # pylint: disable=protected-access
@@ -165,13 +183,14 @@ class MQTTClient(CommunicationClient):
         self.client.unsubscribe(topic)
         return msgs
 
-    def unsubscribe(self, topic):
+    def unsubscribe(self, topic: str) -> None:
+        self._subscriptions.pop(topic)
         self.client.unsubscribe(topic)
 
     def trigger_event(self, event, parameter):
         payload = {
             "timestamp": datetime.now(tz.tzlocal()).isoformat(),
-            "params": parameter
+            "params": parameter,
         }
         self.publish(event, json.dumps(payload), retain=False)
 
@@ -189,10 +208,8 @@ class MQTTClient(CommunicationClient):
         return submodels
 
     def query_asset_names(self, namespace, *submodel_names, seconds=3):
-
         asset_names = []
         for sm in submodel_names:
-
             regexp = create_submodel_regexp(namespace, sm)
             msgs = self._get_msgs_for_n_secs(f"{namespace}/+/{sm}/_meta", seconds)
             asset_names_for_sm = set()
@@ -213,18 +230,22 @@ class MQTTClient(CommunicationClient):
         topic = operation + "/RESP"
         self.subscribe(topic, self._on_response)
         req_id = uuid.uuid4().hex
-        payload = {
-            "req_id": req_id,
-            "params": parameter
-        }
+        payload = {"req_id": req_id, "params": parameter}
 
-        self.publish(operation + "/REQ", json.dumps(payload), retain=False)  # Don't resend method invocations!
+        self.publish(
+            operation + "/REQ", json.dumps(payload), retain=False
+        )  # Don't resend method invocations!
+
         logger.debug("%s invoked with payload %s", operation, payload)
         try:
             start = time.perf_counter()
             response = self._queues[req_id].get(timeout=timeout)
             end = time.perf_counter()
-            logger.debug("got response \"%s\" after %s seconds", response, end - start)
+
+            logger.debug('got response "%s" after %s seconds', response, end - start)
+            # Unsubscribe the topic once the response arrived
+            self.unsubscribe(topic=topic)
+
             return response
         except Empty:
             # pylint: disable=raise-missing-from
@@ -250,11 +271,12 @@ class MQTTClient(CommunicationClient):
                 context.set("req_id", req_id)
                 res = cb(payload_obj["params"])
                 context.free()
-                response = {
-                    "req_id": req_id,
-                    "resp": res
-                }
-                self.publish(operation + "/RESP", json.dumps(response), retain=False)  # Don't resend results
+
+                response = {"req_id": req_id, "resp": res}
+                self.publish(
+                    operation + "/RESP", json.dumps(response), retain=False
+                )  # Don't resend results
+
             except InvalidParameterException as e:
                 logger.error("Callback got invalid parameters: %s", e)
             except KeyError as e:
@@ -264,9 +286,17 @@ class MQTTClient(CommunicationClient):
             except TypeError as e:
                 logger.error("Callback got wrong number of parameters: %s", e)
             except:
-                logger.error(" Exception occurred during callback execution:\n %s", traceback.format_exc())
 
-        self.subscribe(operation + "/REQ", lambda payload: self._executor.submit(callback_func, payload))
+                logger.error(
+                    " Exception occurred during callback execution:\n %s",
+                    traceback.format_exc(),
+                )
+
+        self.subscribe(
+            operation + "/REQ",
+            lambda payload: self._executor.submit(callback_func, payload),
+        )
+
 
     def subscribe_event(self, event, callback):
         def callback_func(payload):
@@ -285,15 +315,27 @@ class MQTTClient(CommunicationClient):
             except TypeError as e:
                 logger.error("Callback got wrong number of parameters: %s", e)
             except:
-                logger.error(" Exception occurred during callback execution:\n%s", traceback.format_exc())
 
-        self.subscribe(event, lambda payload: self._executor.submit(callback_func, payload))
+                logger.error(
+                    " Exception occurred during callback execution:\n%s",
+                    traceback.format_exc(),
+                )
+
+        self.subscribe(
+            event, lambda payload: self._executor.submit(callback_func, payload)
+        )
+
 
     def disconnect(self):
         # pylint: disable=protected-access
         if self.client._will_topic:
             # noinspection PyProtectedMember
-            self.client.publish(self.client._will_topic.decode(), self.client._will_payload.decode(), retain=True)
+            self.client.publish(
+                self.client._will_topic.decode(),
+                self.client._will_payload.decode(),
+                retain=True,
+            )
+
         self.client.disconnect()
         self.client.loop_stop()
 
@@ -307,24 +349,32 @@ class MQTTClient(CommunicationClient):
         self.client.on_message = cb
 
     def connect(self, **config):
-        self.client.will_set(f"{config['namespace']}/{config['endpoint_name']}/_endpoint/online", "false", retain=True)
+
+        self.client.will_set(
+            f"{config['namespace']}/{config['endpoint_name']}/_endpoint/online",
+            "false",
+            retain=True,
+        )
+
         self.client.connect(config["host"], config["port"], keepalive=10)
         self.client.loop_start()
 
     def publish(self, topic, payload, **config):
         logger.debug("Sending %s to %s", payload, topic)
-        self.client.publish(topic, payload, config.get("qos", 2), config.get("retain", True))
+
+        self.client.publish(
+            topic, payload, config.get("qos", 2), config.get("retain", True)
+        )
+
 
     def subscribe(self, topic, callback):
-
         def callback_func(client, userdata, message):
             logger.debug("Received %s from %s", message.payload, message.topic)
             if message.payload:
-
                 # support callbacks for full info as well as payload only
                 func = callback
                 # support for partials
-                if hasattr(callback,"func"):
+                if hasattr(callback, "func"):
                     func = callback.func
 
                 if len(signature(func).parameters) < 3:
@@ -334,7 +384,14 @@ class MQTTClient(CommunicationClient):
             else:
                 logger.debug("Ignored empty message on %s", message.topic)
 
-        self.client.message_callback_add(topic, lambda c, u, m: self._executor.submit(callback_func, c, u, m))
+        if topic not in self._subscriptions:
+            self._subscriptions[topic] = []
+        self._subscriptions[topic].append(callback)
+
+        self.client.message_callback_add(
+            topic, lambda c, u, m: self._executor.submit(callback_func, c, u, m)
+        )
+
         self.client.subscribe(topic, 2)
         logger.debug("Subscribed to %s", topic)
 

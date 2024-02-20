@@ -18,10 +18,13 @@ import logging
 import os
 import ssl
 from threading import Thread, Event
+
+from typing import Type
 from urllib.request import urlopen
 
 from assets2036py import Asset, Mode, ProxyAsset
-from assets2036py.communication import CommunicationClient, MQTTClient
+from assets2036py.communication import MQTTClient
+
 from assets2036py.exceptions import AssetNotFoundError, OperationTimeoutException, AssetNotOnlineError
 from assets2036py.utilities import get_resource_path
 from assets2036py.assetlogging import AssetLoggingHandler
@@ -39,14 +42,16 @@ class AssetManager:
     """
 
     def __init__(self, host: str, port: int, namespace: str, endpoint_name: str,
-                 communication_client: CommunicationClient = MQTTClient) -> None:
+
+                 communication_client: Type[MQTTClient] = MQTTClient) -> None:
+
         """
         Args:
             host (str): URL of MQTT broker or registry
             port (int): Port of MQTT broker or registry
             namespace (str): default namespace to use for asset creation
             endpoint_name (str): name of the endpoint to use
-            communication_client (CommunicationClient, optional): Backend to use for communication. Defaults to MQTTClient.
+            communication_client: Backend to use for communication. Defaults to MQTTClient.
         """
         self.endpoint_name = endpoint_name
         self.port = port
@@ -182,15 +187,19 @@ class AssetManager:
         logger.debug("Restarting. TBI")
         self.shutdown()
 
-    def create_asset(self, name: str, *sub_models: str, mode=Mode.OWNER, namespace=None, create_endpoint=True,
-                     lazy_loading: bool = False) -> Asset:
+
+    def create_asset(self, name: str, *sub_models: str, mode=Mode.OWNER, namespace: str = None,
+                     create_endpoint: bool = True, lazy_loading: bool = False) -> Asset:
+
         """Create a new Asset
 
         Args:
             name (str): Name of the asset to create
             mode (int, optional): set mode to consumer or owner. Defaults to Mode.OWNER.
             namespace (str, optional): Namespace in which asset is created. If not set, namespace of asset manager is used. Defaults to None.
-            lazy_loading: If activated, properties of the implemented submodel are only loaded after first reference.
+            create_endpoint (bool): Decision if a new endpoint asset shall be created.
+            lazy_loading (bool): If activated, properties of the implemented submodel are only loaded after first reference.
+
 
         Returns:
             Asset: Newly created asset
