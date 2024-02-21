@@ -14,25 +14,26 @@
 # limitations under the License.
 
 from os import path
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 here = path.abspath(path.dirname(__file__))
 
 
-with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+with open(path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name='assets2036py',
-    version='0.1.4',
-    url='https://github.com/boschresearch/assets2036spy',
-    license='BIOS',
-    author='Daniel Ewert (CR/APT5)',
-    author_email='Daniel.Ewert@de.bosch.com',
-    description='helper library to easily implement assets2036',
+    name="assets2036py",
+    version="0.1.5",
+    url="https://github.com/boschresearch/assets2036spy",
+    license="BIOS",
+    author="Daniel Ewert (CR/APT5)",
+    author_email="Daniel.Ewert@de.bosch.com",
+    description="helper library to easily implement assets2036",
     long_description=long_description,
-    long_description_content_type='text/markdown',
-    packages=find_packages(exclude=['contrib', 'docs', 'tests', 'examples']),
-    install_requires=['jsonschema', 'paho-mqtt', "python-dateutil"],
-    package_data={"assets2036py": ["resources/*.json", "py.typed"]}
+    long_description_content_type="text/markdown",
+    packages=find_packages(exclude=["contrib", "docs", "tests", "examples"]),
+    install_requires=["jsonschema", "paho-mqtt", "python-dateutil"],
+    package_data={"assets2036py": ["resources/*.json", "py.typed"]},
 )
