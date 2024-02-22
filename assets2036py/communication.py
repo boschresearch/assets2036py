@@ -156,7 +156,7 @@ class MQTTClient(CommunicationClient):
         self._executor = ThreadPoolExecutor(max_workers=10)
         self._subscriptions = {}
         self._on_connect_callbacks = []
-        self.client.on_connect(self._reconnect)
+        self.client.on_connect = self._reconnect
 
     def _reconnect(self, mqttc, obj, flags, reason_code, properties):
         logger.debug("Reconnected with result code %s", reason_code)
