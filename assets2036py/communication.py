@@ -163,8 +163,7 @@ class MQTTClient(CommunicationClient):
         if self._subscriptions:
             for topic, callbacks in self._subscriptions.items():
                 for callback in callbacks:
-                    self.client.message_callback_add(topic, callback)
-                self.client.subscribe(topic, 2)
+                    self.resubscribe(topic, callback)
                 logger.debug("Resubscribed to %s", topic)
         for cb in self._on_connect_callbacks:
             cb(mqttc, obj, flags, reason_code, properties)
@@ -363,7 +362,7 @@ class MQTTClient(CommunicationClient):
             topic, payload, config.get("qos", 2), config.get("retain", True)
         )
 
-    def subscribe(self, topic, callback):
+    def resubscribe(self, topic, callback):
         def callback_func(client, userdata, message):
             logger.debug("Received %s from %s", message.payload, message.topic)
             if message.payload:
@@ -380,16 +379,17 @@ class MQTTClient(CommunicationClient):
             else:
                 logger.debug("Ignored empty message on %s", message.topic)
 
-        if topic not in self._subscriptions:
-            self._subscriptions[topic] = []
-        self._subscriptions[topic].append(callback)
-
         self.client.message_callback_add(
             topic, lambda c, u, m: self._executor.submit(callback_func, c, u, m)
         )
-
         self.client.subscribe(topic, 2)
-        logger.debug("Subscribed to %s", topic)
+        logger.debug("(Re)subscribed to %s", topic)
+
+    def subscribe(self, topic, callback):
+        self.resubscribe(topic, callback)
+        if topic not in self._subscriptions:
+            self._subscriptions[topic] = []
+        self._subscriptions[topic].append(callback)
 
     def run(self):
         pass
