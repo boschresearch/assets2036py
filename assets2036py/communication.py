@@ -23,7 +23,6 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-
 from inspect import signature
 from queue import Empty, Queue
 
@@ -156,7 +155,8 @@ class MQTTClient(CommunicationClient):
 
         self._executor = ThreadPoolExecutor(max_workers=10)
         self._subscriptions = {}
-        self.on_connect(self._reconnect)
+        self._on_connect_callbacks = []
+        self.client.on_connect(self._reconnect)
 
     def _reconnect(self, mqttc, obj, flags, reason_code, properties):
         logger.debug("Reconnected with result code %s", reason_code)
@@ -166,6 +166,8 @@ class MQTTClient(CommunicationClient):
                     self.client.message_callback_add(topic, callback)
                 self.client.subscribe(topic, 2)
                 logger.debug("Resubscribed to %s", topic)
+        for cb in self._on_connect_callbacks:
+            cb(mqttc, obj, flags, reason_code, properties)
 
     def join(self, timeout=None):
         # pylint: disable=protected-access
@@ -286,7 +288,6 @@ class MQTTClient(CommunicationClient):
             except TypeError as e:
                 logger.error("Callback got wrong number of parameters: %s", e)
             except:
-
                 logger.error(
                     " Exception occurred during callback execution:\n %s",
                     traceback.format_exc(),
@@ -296,7 +297,6 @@ class MQTTClient(CommunicationClient):
             operation + "/REQ",
             lambda payload: self._executor.submit(callback_func, payload),
         )
-
 
     def subscribe_event(self, event, callback):
         def callback_func(payload):
@@ -315,7 +315,6 @@ class MQTTClient(CommunicationClient):
             except TypeError as e:
                 logger.error("Callback got wrong number of parameters: %s", e)
             except:
-
                 logger.error(
                     " Exception occurred during callback execution:\n%s",
                     traceback.format_exc(),
@@ -324,7 +323,6 @@ class MQTTClient(CommunicationClient):
         self.subscribe(
             event, lambda payload: self._executor.submit(callback_func, payload)
         )
-
 
     def disconnect(self):
         # pylint: disable=protected-access
@@ -340,7 +338,7 @@ class MQTTClient(CommunicationClient):
         self.client.loop_stop()
 
     def on_connect(self, cb):
-        self.client.on_connect = cb
+        self._on_connect_callbacks.append(cb)
 
     def on_disconnect(self, cb):
         self.client.on_disconnect = cb
@@ -349,7 +347,6 @@ class MQTTClient(CommunicationClient):
         self.client.on_message = cb
 
     def connect(self, **config):
-
         self.client.will_set(
             f"{config['namespace']}/{config['endpoint_name']}/_endpoint/online",
             "false",
@@ -365,7 +362,6 @@ class MQTTClient(CommunicationClient):
         self.client.publish(
             topic, payload, config.get("qos", 2), config.get("retain", True)
         )
-
 
     def subscribe(self, topic, callback):
         def callback_func(client, userdata, message):
