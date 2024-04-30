@@ -25,7 +25,7 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="assets2036py",
-    version="0.1.9",
+    version="0.1.10",
     url="https://github.com/boschresearch/assets2036spy",
     license="BIOS",
     author="Daniel Ewert (CR/APT5)",
