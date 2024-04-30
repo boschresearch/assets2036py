@@ -42,6 +42,10 @@ def create_name_regexp(namespace, assetname):
     return f"{namespace_sanitized}/{assetname_sanitized}/([A-Za-z0-9._-]*)/_meta"
 
 
+def create_belongs_to_regexp():
+    return "([A-Za-z0-9._-]*)/([A-Za-z0-9._-]*)/_relations/belongs_to"
+
+
 def create_submodel_regexp(namespace, submodelname):
     namespace_sanitized = namespace.replace("+", "\w+?")
     submodelname_sanitized = submodelname.replace("+", "\w+?")
@@ -226,6 +230,22 @@ class MQTTClient(CommunicationClient):
         if len(asset_names) == 1:
             return asset_names[0]
         return asset_names[0].intersection(*asset_names[1:])
+
+    def query_asset_children(self, namespace, asset_name, seconds=1):
+        asset_info = []
+        msgs = self._get_msgs_for_n_secs("+/+/_relations/belongs_to", seconds)
+        regexp = create_belongs_to_regexp()
+        for topic, parent in msgs.items():
+            payload = json.loads(parent[0])
+            if (
+                payload["asset_name"] == asset_name
+                and payload["namespace"] == namespace
+            ):
+                match = re.search(regexp, topic)
+                if not match:
+                    continue
+                asset_info.append({"asset_name": match[2], "namespace": match[1]})
+        return asset_info
 
     def invoke_operation(self, operation, parameter, timeout):
         topic = operation + "/RESP"

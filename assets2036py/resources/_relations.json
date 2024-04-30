@@ -1,0 +1,43 @@
+{
+  "name": "_relations",
+  "revision": "0.0.1",
+  "description": "describe association to another asset",
+  "properties": {
+    "belongs_to": {
+      "description": "namespace and name of the asset this asset is associated with. If no namespace is given, namespace of this asset is assumed.",
+      "type": "object",
+      "properties": {
+        "namespace": {
+          "type": "string"
+        },
+        "asset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_name"
+      ]
+    },
+    "relations": {
+      "description": "list of generic use-case specific relations to other assets",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "asset_name"
+        ],
+        "properties": {
+          "namespace": {
+            "type": "string"
+          },
+          "asset_name": {
+            "type": "string"
+          },
+          "relation_type": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

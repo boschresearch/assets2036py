@@ -24,22 +24,24 @@ from enum import Enum
 from json import JSONDecodeError
 from numbers import Number
 from os import path
-
 from typing import Any, Callable, Union
-
 from urllib.request import urlopen
 
 import jsonschema
 
 from assets2036py.exceptions import InvalidParameterException, NotWritableError
+
 from .communication import CommunicationClient
-from .utilities import sanitize, get_resource_path
+from .utilities import get_resource_path, sanitize
 
 # pylint: disable=protected-access, line-too-long
 
 
 logger = logging.getLogger(__name__)
 schema_file = path.abspath(path.dirname(__file__)) + "/resources/submodel_schema.json"
+_relationssubmodel_url = (
+    "file:" + path.abspath(path.dirname(__file__)) + "/resources/_relations.json"
+)
 
 with open(schema_file) as f:
     submodel_schema = json.load(f)
@@ -64,7 +66,7 @@ class PropertyType(Enum):
             self.NUMBER: Number,
             self.OBJECT: dict,
             self.STRING: str,
-            self.ARRAY: list
+            self.ARRAY: list,
         }
         if self in type_map:
             return type_map[self]
@@ -110,7 +112,6 @@ class Property(ABC):
 
 
 class WritableProperty(Property):
-
     @property
     def value(self):
         return self._val
@@ -127,7 +128,6 @@ class WritableProperty(Property):
 
 
 class ReadOnlyProperty(Property):
-
     def __init__(self, name, parent, property_definition):
         super().__init__(name, parent, property_definition)
         self.communication_client.subscribe(self._get_topic(), self._update)
@@ -161,12 +161,17 @@ class Event(ABC):
         self.communication_client = parent.communication_client
         self._parameters = {}
         if "parameters" in event_definition:
-            self._parameters = {name: PropertyType[schema["type"].upper()] for name, schema in
-                                event_definition["parameters"].items()}
+            self._parameters = {
+                name: PropertyType[schema["type"].upper()]
+                for name, schema in event_definition["parameters"].items()
+            }
 
     def _validate_parameters(self, params):
         if params.keys() == self._parameters.keys():
-            return all(isinstance(val, self._parameters[name].native_type()) for name, val in params.items())
+            return all(
+                isinstance(val, self._parameters[name].native_type())
+                for name, val in params.items()
+            )
         return False
 
     def _get_topic(self):
@@ -174,22 +179,23 @@ class Event(ABC):
 
 
 class SubscribableEvent(Event):
-
     def on_event(self, callback):
         def callback_func(parameters, timestamp):
             if not self._validate_parameters(parameters):
                 raise InvalidParameterException(
-                    f" expected {','.join(self._parameters.keys())} but received {parameters}")
+                    f" expected {','.join(self._parameters.keys())} but received {parameters}"
+                )
             callback(timestamp, **parameters)
 
         self.communication_client.subscribe_event(self._get_topic(), callback_func)
 
 
 class TriggerableEvent(Event):
-
     def trigger(self, **params):
         if not self._validate_parameters(params):
-            raise InvalidParameterException(f" expected {self._parameters.keys()} but got {params}")
+            raise InvalidParameterException(
+                f" expected {self._parameters.keys()} but got {params}"
+            )
         self.communication_client.trigger_event(self._get_topic(), params)
 
 
@@ -201,10 +207,14 @@ class Operation(ABC):
         self._response_schema = None
         self._parameters = {}
         if "parameters" in operation_definition:
-            self._parameters = {name: PropertyType[schema["type"].upper()] for name, schema in
-                                operation_definition["parameters"].items()}
+            self._parameters = {
+                name: PropertyType[schema["type"].upper()]
+                for name, schema in operation_definition["parameters"].items()
+            }
         if "response" in operation_definition:
-            self._response_type = PropertyType[operation_definition["response"]["type"].upper()]
+            self._response_type = PropertyType[
+                operation_definition["response"]["type"].upper()
+            ]
             self._response_schema = operation_definition["response"]
 
     @abstractmethod
@@ -213,7 +223,10 @@ class Operation(ABC):
 
     def _validate_parameters(self, params):
         if params.keys() == self._parameters.keys():
-            return all(isinstance(val, self._parameters[name].native_type()) for name, val in params.items())
+            return all(
+                isinstance(val, self._parameters[name].native_type())
+                for name, val in params.items()
+            )
         return False
 
     # noinspection PyProtectedMember
@@ -222,12 +235,15 @@ class Operation(ABC):
 
 
 class CallableOperation(Operation):
-
     def invoke(self, timeout=None, **params):
         if not self._validate_parameters(params):
-            raise InvalidParameterException(f" expected {self._parameters} but got {params}")
+            raise InvalidParameterException(
+                f" expected {self._parameters} but got {params}"
+            )
         logger.debug("Calling %s", self.name)
-        res = self.communication_client.invoke_operation(self._get_topic(), params, timeout)
+        res = self.communication_client.invoke_operation(
+            self._get_topic(), params, timeout
+        )
         logger.debug("%s got %s", self.name, res)
         if hasattr(self, "_response_type"):
             assert isinstance(res, self._response_type.native_type())
@@ -242,13 +258,18 @@ class BindableOperation(Operation):
         def callback_func(parameters):
             if not self._validate_parameters(parameters):
                 raise InvalidParameterException(
-                    f" expected list with {self._parameters.keys()} but received {parameters}")
+                    f" expected list with {self._parameters.keys()} but received {parameters}"
+                )
             try:
                 res = callback(**parameters)
                 logger.debug("callback executed, response is %s", res)
             # pylint: disable=broad-except
             except Exception:
-                logger.error("operation '%s' caused exception:\n%s", callback, traceback.format_exc())
+                logger.error(
+                    "operation '%s' caused exception:\n%s",
+                    callback,
+                    traceback.format_exc(),
+                )
             if hasattr(self, "_response_type"):
                 jsonschema.validate(res, self._response_schema)
                 return res
@@ -262,7 +283,8 @@ class SubModel:
         "properties": {
             "source": {"type": "string"},
             "submodel_schema": {"type": "object"},
-            "submodel_url": {"type": "string"}}
+            "submodel_url": {"type": "string"},
+        },
     }
 
     def __init__(self, asset, submodel_definition, lazy_loading=False):
@@ -301,12 +323,18 @@ class SubModel:
         # Get the access mode from the parent node
         access_mode = self.parent.access_mode
         # Check if item is in "events"
-        if "events" in self.submodel_definition and name in self.submodel_definition["events"]:
+        if (
+            "events" in self.submodel_definition
+            and name in self.submodel_definition["events"]
+        ):
             # requested item found as event. Create event and return instance
             schema = self.submodel_definition["events"][name]
             new_event = self._create_event_attribute(name, schema, access_mode)
             return new_event
-        if "properties" in self.submodel_definition and name in self.submodel_definition["properties"]:
+        if (
+            "properties" in self.submodel_definition
+            and name in self.submodel_definition["properties"]
+        ):
             # requested item found as property
             schema = self.submodel_definition["properties"][name]
             new_prop = self._create_property_attribute(name, schema, access_mode)
@@ -359,13 +387,27 @@ class SubModel:
         else:
             with open(get_resource_path("_endpoint.json")) as file:
                 endpoint_sm_definition = json.load(file)
-            self.endpoint_asset = Asset(source_asset, namespace, endpoint_sm_definition, mode=Mode.CONSUMER,
-                                        communication_client=self.communication_client, endpoint_name="")
+            self.endpoint_asset = Asset(
+                source_asset,
+                namespace,
+                endpoint_sm_definition,
+                mode=Mode.CONSUMER,
+                communication_client=self.communication_client,
+                endpoint_name="",
+            )
         self.endpoint_asset._endpoint.online.on_change(self._raise_offline_exception)
 
     def delete(self):
-        deletables = [getattr(self, prop) for prop in dir(self) if type(getattr(self, prop)) == WritableProperty]
-        deletables.extend(getattr(self, prop) for prop in dir(self) if type(getattr(self, prop)) == BindableOperation)
+        deletables = [
+            getattr(self, prop)
+            for prop in dir(self)
+            if type(getattr(self, prop)) == WritableProperty
+        ]
+        deletables.extend(
+            getattr(self, prop)
+            for prop in dir(self)
+            if type(getattr(self, prop)) == BindableOperation
+        )
         for d in deletables:
             d.delete()
 
@@ -383,10 +425,9 @@ class SubModel:
             new_op = BindableOperation(name, self, schema)
             setattr(self, "bind_" + sanitize(name), new_op.bind)
 
-
-    def _create_property_attribute(self, name: str, schema: dict, mode: Mode)\
-            -> Union[ReadOnlyProperty, WritableProperty]:
-
+    def _create_property_attribute(
+        self, name: str, schema: dict, mode: Mode
+    ) -> Union[ReadOnlyProperty, WritableProperty]:
         """
         Create a property instance and attach it to the submodel as its attribute.
         Args:
@@ -407,9 +448,9 @@ class SubModel:
         setattr(self, sanitize(name), new_prop)
         return new_prop
 
-
-    def _create_event_attribute(self, name: str, schema: dict, mode: Mode) -> Union[SubscribableEvent, Callable]:
-
+    def _create_event_attribute(
+        self, name: str, schema: dict, mode: Mode
+    ) -> Union[SubscribableEvent, Callable]:
         """
         Create an event instance and attach it to the submodel as its attribute.
         Args:
@@ -444,8 +485,16 @@ class Asset:
 
     """
 
-    def __init__(self, name: str, namespace: str, *sub_models: dict, mode: Mode = Mode.CONSUMER,
-                 communication_client: CommunicationClient, endpoint_name: str, lazy_loading: bool = False) -> None:
+    def __init__(
+        self,
+        name: str,
+        namespace: str,
+        *sub_models: dict,
+        mode: Mode = Mode.CONSUMER,
+        communication_client: CommunicationClient,
+        endpoint_name: str,
+        lazy_loading: bool = False,
+    ) -> None:
         """
         Initialize the asset object
         Args:
@@ -472,6 +521,42 @@ class Asset:
         logger.debug("%s disconnects", self.name)
         self.communication_client.disconnect()
 
+    def get_child_assets(self) -> list[dict]:
+        """
+        Get all child assets of the current asset.
+        Returns:
+            list[dict]: List of child assets with asset_name and namespace
+        """
+        return self.communication_client.query_asset_children(self.namespace, self.name)
+
+    def create_child_asset(
+        self, namespace: str, name: str, *sub_models: dict
+    ) -> "Asset":
+        """
+        Create a child asset of the current asset.
+        Args:
+            namespace: Namespace in which the asset is present
+            name: Name of the child asset
+            *sub_models: Tuple of submodel definitions the asset shall implement
+
+        Returns:
+            Asset: The created child asset
+        """
+        child_asset = Asset(
+            name,
+            namespace,
+            *(*sub_models, _relationssubmodel_url),
+            mode=self.access_mode,
+            communication_client=self.communication_client,
+            endpoint_name=self.endpoint_name,
+            lazy_loading=self.lazy_loading,
+        )
+        child_asset._relations.belongs_to.value = {
+            "namespace": self.namespace,
+            "asset_name": self.name,
+        }
+        return child_asset
+
     def delete(self):
         for submodel in self.sub_model_names:
             getattr(self, submodel).delete()
@@ -485,11 +570,17 @@ class Asset:
             except JSONDecodeError:
                 # try to load as a web resource
                 try:
-                    with urlopen(submodel, context=ssl._create_unverified_context()) as response:
+                    with urlopen(
+                        submodel, context=ssl._create_unverified_context()
+                    ) as response:
                         submodel_def = json.load(response)
                     submodel_url = submodel
                 except ValueError as valexc:
-                    logger.error("Could not parse submodel definition of %s:\n%s", submodel, valexc)
+                    logger.error(
+                        "Could not parse submodel definition of %s:\n%s",
+                        submodel,
+                        valexc,
+                    )
                     return
         else:
             submodel_def = submodel
@@ -501,10 +592,12 @@ class Asset:
 
         new_sm = SubModel(self, submodel_def, lazy_loading=self.lazy_loading)
         if self.access_mode == Mode.OWNER:
-            new_sm._meta.value = {"source": f"{self.namespace}/{self.endpoint_name}",
-                                  "submodel_definition": submodel_def,
-                                  "submodel_url": submodel_url if submodel_url else "file://localhost"}
-        submodel_name = submodel_def['name'].replace("-", "_").replace(" ", "")
+            new_sm._meta.value = {
+                "source": f"{self.namespace}/{self.endpoint_name}",
+                "submodel_definition": submodel_def,
+                "submodel_url": submodel_url if submodel_url else "file://localhost",
+            }
+        submodel_name = submodel_def["name"].replace("-", "_").replace(" ", "")
         self.sub_model_names.append(submodel_name)
         setattr(self, submodel_name, new_sm)
 
@@ -513,9 +606,16 @@ class Asset:
 
 
 class ProxyAsset(Asset):
-
-    def __init__(self, name: str, namespace: str, *meta_infos: dict[str, Any], mode: Mode = Mode.CONSUMER,
-                 communication_client: CommunicationClient, endpoint_name: str, lazy_loading: bool = False) -> None:
+    def __init__(
+        self,
+        name: str,
+        namespace: str,
+        *meta_infos: dict[str, Any],
+        mode: Mode = Mode.CONSUMER,
+        communication_client: CommunicationClient,
+        endpoint_name: str,
+        lazy_loading: bool = False,
+    ) -> None:
         """
         Initialize the ProxyAsset object
         Args:
@@ -537,8 +637,15 @@ class ProxyAsset(Asset):
             submodel_defs.append(sm_def)
             sources[sm_def["name"]] = meta_info["source"]
 
-        super().__init__(name, namespace, *submodel_defs, mode=mode, communication_client=communication_client,
-                         endpoint_name=endpoint_name, lazy_loading=lazy_loading)
+        super().__init__(
+            name,
+            namespace,
+            *submodel_defs,
+            mode=mode,
+            communication_client=communication_client,
+            endpoint_name=endpoint_name,
+            lazy_loading=lazy_loading,
+        )
         for name, source in sources.items():
             if name != "_endpoint":
                 getattr(self, name).register_source(source)
