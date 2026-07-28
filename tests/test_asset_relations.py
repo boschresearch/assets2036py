@@ -14,59 +14,58 @@
 # limitations under the License.
 
 import os
-from unittest import TestCase
+
+import pytest
 
 from assets2036py import AssetManager
 
-HOST = os.getenv("MQTT_BROKER_URL", "10.163.31.2")
-PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
 NAMESPACE = os.getenv("MQTT_NAMESPACE", "test_arena2036")
 ENDPOINT = os.getenv("MQTT_ENDPOINT", "test_arena2036mgr")
 
 
-class TestAssetRelations(TestCase):
-    def test_create_children(self):
-        mgr = AssetManager(HOST, PORT, NAMESPACE, ENDPOINT)
-        root_asset = mgr.create_asset(
-            "root_asset",
-            "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/pose3d.json",
-        )
+@pytest.mark.network
+def test_create_children(mqtt_broker):
+    mgr = AssetManager(mqtt_broker["host"], mqtt_broker["port"], NAMESPACE, ENDPOINT)
+    root_asset = mgr.create_asset(
+        "root_asset",
+        "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/pose3d.json",
+    )
+    child_asset = root_asset.create_child_asset(
+        NAMESPACE,
+        "child_asset1",
+        "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/pose3d.json",
+    )
+    assert child_asset._relations.belongs_to.value["asset_name"] == "root_asset"
+    assert "pose3d" in dir(child_asset)
+    mgr.disconnect()
+
+
+@pytest.mark.network
+def test_get_asset_proxy_children(mqtt_broker):
+    mgr = AssetManager(mqtt_broker["host"], mqtt_broker["port"], NAMESPACE, ENDPOINT)
+    root_asset = mgr.create_asset(
+        "root_asset",
+        "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/pose3d.json",
+    )
+    for i in range(3):
         child_asset = root_asset.create_child_asset(
             NAMESPACE,
-            "child_asset1",
+            "child_asset" + str(i),
             "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/pose3d.json",
         )
-        self.assertEqual(
-            child_asset._relations.belongs_to.value["asset_name"], "root_asset"
-        )
-        self.assertTrue("pose3d" in dir(child_asset))
-
-    def test_get_asset_proxy_children(self):
-        mgr = AssetManager(HOST, PORT, NAMESPACE, ENDPOINT)
-        root_asset = mgr.create_asset(
-            "root_asset",
-            "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/pose3d.json",
-        )
-        for i in range(3):
-            child_asset = root_asset.create_child_asset(
+        for j in range(2):
+            child_asset.create_child_asset(
                 NAMESPACE,
-                "child_asset" + str(i),
+                "child_asset" + str(i) + str(j),
                 "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/pose3d.json",
             )
-            for j in range(2):
-                child_asset.create_child_asset(
-                    NAMESPACE,
-                    "child_asset" + str(i) + str(j),
-                    "https://raw.githubusercontent.com/boschresearch/assets2036-submodels/master/pose3d.json",
-                )
-        root_proxy = mgr.create_asset_proxy(NAMESPACE, "root_asset")
-        asset_info = root_proxy.get_child_assets()
-        self.assertEqual(len(asset_info), 3)
-        for i in range(3):
-            self.assertTrue(
-                any(
-                    asset["asset_name"] == "child_asset" + str(i)
-                    and asset["namespace"] == NAMESPACE
-                    for asset in asset_info
-                )
-            )
+    root_proxy = mgr.create_asset_proxy(NAMESPACE, "root_asset")
+    asset_info = root_proxy.get_child_assets()
+    assert len(asset_info) == 3
+    for i in range(3):
+        assert any(
+            asset["asset_name"] == "child_asset" + str(i)
+            and asset["namespace"] == NAMESPACE
+            for asset in asset_info
+        )
+    mgr.disconnect()

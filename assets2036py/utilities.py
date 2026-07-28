@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
+import contextvars
 import os
 import re
 
@@ -37,66 +37,44 @@ def get_resource_path(filename):
 
 
 class Context:
-    """ Provide arbitrary data to all called functions
-    Usage:
-        Set arbitrary property:
+    """Thread-safe context for passing request data to operation callbacks.
 
-        context.set("name","monty")
+    Uses contextvars.ContextVar under the hood — each thread/task gets its
+    own copy automatically.
 
-        All subsequently called functions (in the same stack)
-        can access the data directly:
+    Usage::
 
-        print(context.name) # outputs "monty"
-
+        context.set("req_id", "abc123")
+        print(context.req_id)  # "abc123"
+        context.free()
+        print(context.req_id)  # None
     """
 
-    class __Context:
-        """
-        Inner instance class
-        """
-
-        def __init__(self):
-            self.data = {}
-
-        def __str__(self):
-            return repr(self) + self.val
-
-        def __getattr__(self, name):
-            frame = inspect.currentframe()
-            if name not in self.data:
-                return None
-            for f in inspect.getouterframes(frame):
-                if f.frame in self.data[name]:
-                    return self.data[name][f.frame]
-            return None
-
-        def set(self, name, val):
-            """set or update attribute
-            Args:
-                name (str): name of the attribute
-                val: value of the attribute 
-            """
-            frame = inspect.getouterframes(inspect.currentframe())[1].frame
-            if name not in self.data:
-                self.data[name] = {}
-            self.data[name][frame] = val
-
-        def free(self):
-            frame = inspect.getouterframes(inspect.currentframe())[1].frame
-            for var in self.data.copy():
-                if frame in self.data[var]:
-                    del self.data[var][frame]
-                    if not self.data[var]:
-                        del self.data[var]
-
-    instance = None
-
     def __init__(self):
-        if not Context.instance:
-            Context.instance = Context.__Context()
+        self._vars: dict[str, contextvars.ContextVar] = {}
 
-    def __getattr__(self, name):
-        return getattr(self.instance, name)
+    def set(self, name: str, val) -> None:
+        """Set a context variable.
+
+        Args:
+            name: Name of the variable.
+            val: Value to store.
+        """
+        if name not in self._vars:
+            self._vars[name] = contextvars.ContextVar(f"ctx_{name}", default=None)
+        self._vars[name].set(val)
+
+    def free(self) -> None:
+        """Reset all context variables to None."""
+        for var in self._vars.values():
+            var.set(None)
+
+    def __getattr__(self, name: str):
+        if name.startswith("_") or name in ("set", "free"):
+            raise AttributeError(name)
+        if name in self._vars:
+            return self._vars[name].get(None)
+        return None
 
 
 context = Context()

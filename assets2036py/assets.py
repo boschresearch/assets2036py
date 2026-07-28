@@ -80,6 +80,12 @@ class Mode(Enum):
 
 
 class Property(ABC):
+    """Base class for asset properties.
+
+    Properties represent typed values on a SubModel. They are validated
+    against a JSON Schema on each write.
+    """
+
     def __init__(self, name, parent, property_definition):
         self._val = None
         self.schema = property_definition
@@ -112,6 +118,10 @@ class Property(ABC):
 
 
 class WritableProperty(Property):
+    """A property owned by this endpoint — values can be read and written.
+
+    Writing a value publishes it to the MQTT broker with retain=True.
+    """
     @property
     def value(self):
         return self._val
@@ -128,6 +138,11 @@ class WritableProperty(Property):
 
 
 class ReadOnlyProperty(Property):
+    """A property consumed from a remote asset — read-only.
+
+    Subscribes to the MQTT topic and updates automatically when the
+    owner publishes a new value.
+    """
     def __init__(self, name, parent, property_definition):
         super().__init__(name, parent, property_definition)
         self.communication_client.subscribe(self._get_topic(), self._update)
@@ -155,6 +170,12 @@ class ReadOnlyProperty(Property):
 
 
 class Event(ABC):
+    """Base class for asset events.
+
+    Events are fire-and-forget notifications with a timestamp and
+    optional typed parameters.
+    """
+
     def __init__(self, name, parent, event_definition):
         self.name = name
         self.parent = parent
@@ -179,6 +200,7 @@ class Event(ABC):
 
 
 class SubscribableEvent(Event):
+    """An event that can be subscribed to (consumer side)."""
     def on_event(self, callback):
         def callback_func(parameters, timestamp):
             if not self._validate_parameters(parameters):
@@ -191,6 +213,7 @@ class SubscribableEvent(Event):
 
 
 class TriggerableEvent(Event):
+    """An event that can be triggered (owner side)."""
     def trigger(self, **params):
         if not self._validate_parameters(params):
             raise InvalidParameterException(
@@ -200,6 +223,12 @@ class TriggerableEvent(Event):
 
 
 class Operation(ABC):
+    """Base class for asset operations (RPC).
+
+    Operations follow a request/response pattern over MQTT topics
+    suffixed with ``/REQ`` and ``/RESP``.
+    """
+
     def __init__(self, name, parent, operation_definition):
         self.name = name
         self.parent = parent
@@ -235,6 +264,7 @@ class Operation(ABC):
 
 
 class CallableOperation(Operation):
+    """An operation that can be invoked remotely (consumer side)."""
     def invoke(self, timeout=None, **params):
         if not self._validate_parameters(params):
             raise InvalidParameterException(
@@ -251,6 +281,7 @@ class CallableOperation(Operation):
 
 
 class BindableOperation(Operation):
+    """An operation whose implementation can be bound locally (owner side)."""
     def invoke(self, timeout=None, **params):
         super().invoke(timeout=timeout, **params)
 
@@ -401,12 +432,12 @@ class SubModel:
         deletables = [
             getattr(self, prop)
             for prop in dir(self)
-            if type(getattr(self, prop)) == WritableProperty
+            if isinstance(getattr(self, prop), WritableProperty)
         ]
         deletables.extend(
             getattr(self, prop)
             for prop in dir(self)
-            if type(getattr(self, prop)) == BindableOperation
+            if isinstance(getattr(self, prop), BindableOperation)
         )
         for d in deletables:
             d.delete()
@@ -649,7 +680,7 @@ class ProxyAsset(Asset):
         for name, source in sources.items():
             if name != "_endpoint":
                 getattr(self, name).register_source(source)
-                # this is some hacky shit, we need some nicer refactoring here
+                # TODO: refactor source registration into a dedicated method
 
     @property
     def is_online(self) -> bool:

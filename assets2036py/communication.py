@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 
 
 def create_name_regexp(namespace, assetname):
-    namespace_sanitized = namespace.replace("+", "\w+?")
-    assetname_sanitized = assetname.replace("+", "\w+?")
+    namespace_sanitized = namespace.replace("+", r"\w+?")
+    assetname_sanitized = assetname.replace("+", r"\w+?")
     return f"{namespace_sanitized}/{assetname_sanitized}/([A-Za-z0-9._-]*)/_meta"
 
 
@@ -47,8 +47,8 @@ def create_belongs_to_regexp():
 
 
 def create_submodel_regexp(namespace, submodelname):
-    namespace_sanitized = namespace.replace("+", "\w+?")
-    submodelname_sanitized = submodelname.replace("+", "\w+?")
+    namespace_sanitized = namespace.replace("+", r"\w+?")
+    submodelname_sanitized = submodelname.replace("+", r"\w+?")
     return f"{namespace_sanitized}/([A-Za-z0-9._-]*)/{submodelname_sanitized}/_meta"
 
 
@@ -157,7 +157,7 @@ class MQTTClient(CommunicationClient):
             clean_session=True,
         )
 
-        self._executor = ThreadPoolExecutor(max_workers=10)
+        self._executor = ThreadPoolExecutor(max_workers=20)
         self._subscriptions = {}
         self._on_connect_callbacks = []
         self.client.on_connect = self._reconnect
@@ -189,7 +189,11 @@ class MQTTClient(CommunicationClient):
         return msgs
 
     def unsubscribe(self, topic: str) -> None:
-        self._subscriptions.pop(topic)
+        self._subscriptions.pop(topic, None)
+        try:
+            self.client.message_callback_remove(topic)
+        except Exception:
+            pass
         self.client.unsubscribe(topic)
 
     def trigger_event(self, event, parameter):
@@ -249,7 +253,8 @@ class MQTTClient(CommunicationClient):
 
     def invoke_operation(self, operation, parameter, timeout):
         topic = operation + "/RESP"
-        self.subscribe(topic, self._on_response)
+        if topic not in self._subscriptions:
+            self.subscribe(topic, self._on_response)
         req_id = uuid.uuid4().hex
         payload = {"req_id": req_id, "params": parameter}
 
@@ -260,12 +265,11 @@ class MQTTClient(CommunicationClient):
         logger.debug("%s invoked with payload %s", operation, payload)
         try:
             start = time.perf_counter()
-            response = self._queues[req_id].get(timeout=timeout)
+            effective_timeout = timeout if timeout is not None else 10.0
+            response = self._queues[req_id].get(timeout=effective_timeout)
             end = time.perf_counter()
 
             logger.debug('got response "%s" after %s seconds', response, end - start)
-            # Unsubscribe the topic once the response arrived
-            self.unsubscribe(topic=topic)
 
             return response
         except Empty:
@@ -285,7 +289,6 @@ class MQTTClient(CommunicationClient):
 
     def bind_operation(self, operation, cb):
         def callback_func(payload):
-            # pylint: disable=bare-except
             try:
                 payload_obj = json.loads(payload)
                 req_id = payload_obj["req_id"]
@@ -306,7 +309,7 @@ class MQTTClient(CommunicationClient):
                 logger.error("Received invalid json: %s", e)
             except TypeError as e:
                 logger.error("Callback got wrong number of parameters: %s", e)
-            except:
+            except Exception:
                 logger.error(
                     " Exception occurred during callback execution:\n %s",
                     traceback.format_exc(),
@@ -319,7 +322,6 @@ class MQTTClient(CommunicationClient):
 
     def subscribe_event(self, event, callback):
         def callback_func(payload):
-            # pylint: disable=bare-except
             try:
                 payload_obj = json.loads(payload)
                 timestamp = payload_obj["timestamp"]
@@ -333,7 +335,7 @@ class MQTTClient(CommunicationClient):
                 logger.error("Received invalid json: %s", e)
             except TypeError as e:
                 logger.error("Callback got wrong number of parameters: %s", e)
-            except:
+            except Exception:
                 logger.error(
                     " Exception occurred during callback execution:\n%s",
                     traceback.format_exc(),

@@ -21,15 +21,15 @@ from threading import Event, Thread
 from typing import Type
 from urllib.request import urlopen
 
-from assets2036py import Asset, Mode, ProxyAsset
-from assets2036py.assetlogging import AssetLoggingHandler
-from assets2036py.communication import MQTTClient
-from assets2036py.exceptions import (
+from .assetlogging import AssetLoggingHandler
+from .assets import Asset, Mode, ProxyAsset
+from .communication import MQTTClient
+from .exceptions import (
     AssetNotFoundError,
     AssetNotOnlineError,
     OperationTimeoutException,
 )
-from assets2036py.utilities import get_resource_path
+from .utilities import get_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +69,13 @@ class AssetManager:
         )
         self._endpoint = None
         self._shutdown = Event()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.disconnect()
+        return False
 
     def __del__(self):
         """
@@ -130,9 +137,11 @@ class AssetManager:
         Optionally kills the complete application if healthy resolves to False
 
         Args:
-            callback (function): callback that will be called each <interval> seconds. Receives no parameters, must return True or False
-            interval (int, optional): callback will be called every <interval> seconds. Defaults to 30.
-            kill_on_unhealthy (bool, optional): If set to True, os._exit(-1) is called and app is terminated. Defaults to False.
+            callback (function): Callback that will be called each <interval> seconds.
+                Receives no parameters, must return True or False.
+            interval (int, optional): Callback will be called every <interval> seconds. Defaults to 30.
+            kill_on_unhealthy (bool, optional): If set to True, os._exit(-1) is called and app is
+                terminated. Defaults to False.
         """
 
         def monitor_loop():
@@ -209,11 +218,12 @@ class AssetManager:
 
         Args:
             name (str): Name of the asset to create
-            mode (int, optional): set mode to consumer or owner. Defaults to Mode.OWNER.
-            namespace (str, optional): Namespace in which asset is created. If not set, namespace of asset manager is used. Defaults to None.
+            mode (int, optional): Set mode to consumer or owner. Defaults to Mode.OWNER.
+            namespace (str, optional): Namespace in which asset is created. If not set,
+                namespace of asset manager is used. Defaults to None.
             create_endpoint (bool): Decision if a new endpoint asset shall be created.
-            lazy_loading (bool): If activated, properties of the implemented submodel are only loaded after first reference.
-
+            lazy_loading (bool): If activated, properties of the implemented submodel are
+                only loaded after first reference.
 
         Returns:
             Asset: Newly created asset

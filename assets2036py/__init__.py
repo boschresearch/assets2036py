@@ -13,7 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .assets import *
+from .assetmanager import AssetManager, Mode
+from .assets import Asset, ProxyAsset, SubModel
+from .exceptions import AssetNotFoundError, AssetNotOnlineError, InvalidParameterException, NotWritableError
 from .utilities import context
-from .assetmanager import *
-from .exceptions import *
+
+__version__ = "0.2.0"
+
+__all__ = [
+    "Asset",
+    "AssetManager",
+    "AssetNotFoundError",
+    "AssetNotOnlineError",
+    "InvalidParameterException",
+    "Mode",
+    "NotWritableError",
+    "ProxyAsset",
+    "SubModel",
+    "context",
+    "__version__",
+]

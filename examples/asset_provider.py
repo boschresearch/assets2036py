@@ -12,19 +12,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Example for providing an Asset.
+
+Run this first, then run asset_consumer.py in another terminal.
+Requires an MQTT broker running (e.g., mosquitto on localhost:1883).
 """
-Example for providing an Asset.
-"""
-import sys
-import time
 import logging
 import os
+import signal
+import time
 
-p = os.path.abspath('.')
-sys.path.insert(1, p)
-from assets2036py import AssetManager  # noqa
-from assets2036py.exceptions import AssetNotFoundError  # noqa
-
+from assets2036py import AssetManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,67 +34,55 @@ SUBMODEL_URL = "https://raw.githubusercontent.com/boschresearch/assets2036-submo
 
 
 class Light:
-    """
-    Emulate light, could be real driver or legacy interface
-    """
+    """Emulate a light device (could be a real hardware driver)."""
 
     def __init__(self) -> None:
-        self._light_state = False
+        self._state = False
 
-    def get_light_state(self) -> bool:
-        return self._light_state
+    @property
+    def is_on(self) -> bool:
+        return self._state
 
     def switch_on(self) -> bool:
-        self._light_state = True
+        self._state = True
         return True
 
     def switch_off(self) -> bool:
-        self._light_state = False
+        self._state = False
         return True
 
 
-class LightAdapter:
-    """
-    Connector between legacy light and assets2036
-    """
-
-    def __init__(self) -> None:
-        mgr = AssetManager(BROKER_URL, BROKER_PORT, NAMESPACE, ENDPOINT)
-
-        # create new asset in default namespace
-        self._lamp_1 = mgr.create_asset("lamp_1", SUBMODEL_URL)
-        self._light = Light()
-
-        # register callback for operation calls
-        self._lamp_1.light.bind_switch_light(self._switch_light)
-
-    def _switch_light(self, state: bool) -> bool:
-        """
-        implementation of switch_light operation
-        """
-        if state:
-            success = self._light.switch_on()
-        else:
-            success = self._light.switch_off()
-        if success:
-            # emit event
-            self._lamp_1.light.light_switched(
-                state=self._light.get_light_state())
-            # set property
-            self._lamp_1.light.light_on.value = self._light.get_light_state()
-        return success
-
-    def run(self):
-        while True:
-            time.sleep(1)
-
-
 def main():
-    logger.debug("Connecting to Broker %s:%s", BROKER_URL, BROKER_PORT)
-    light_adapter = LightAdapter()
-    light_adapter.run()
+    logging.basicConfig(level=logging.DEBUG)
+    logger.info("Connecting to broker %s:%s", BROKER_URL, BROKER_PORT)
+
+    with AssetManager(BROKER_URL, BROKER_PORT, NAMESPACE, ENDPOINT) as mgr:
+        lamp = mgr.create_asset("lamp_1", SUBMODEL_URL)
+        light = Light()
+
+        def switch_light(state: bool) -> bool:
+            """Implementation of the switch_light operation."""
+            success = light.switch_on() if state else light.switch_off()
+            if success:
+                lamp.light.light_switched(state=light.is_on)
+                lamp.light.light_on.value = light.is_on
+            return success
+
+        lamp.light.bind_switch_light(switch_light)
+        logger.info("Asset 'lamp_1' is online. Press Ctrl+C to exit.")
+
+        try:
+            signal.pause()  # Wait for signals (Ctrl+C)
+        except (KeyboardInterrupt, AttributeError):
+            # AttributeError: signal.pause() not available on Windows
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                pass
+
+    logger.info("Disconnected.")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
     main()

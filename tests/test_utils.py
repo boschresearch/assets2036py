@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import logging
-import os
 import time
 from os import path
 from urllib.request import pathname2url
@@ -25,10 +24,9 @@ logger = logging.getLogger(__name__)
 
 res_path = path.abspath(path.dirname(__file__)) + "/resources/"
 res_url = "file:" + pathname2url(res_path)
-HOST = os.getenv("MQTT_BROKER_URL", "localhost")
 
 
-def get_msgs_for_n_secs(topic, seconds, host=HOST):
+def get_msgs_for_n_secs(topic, seconds, host="127.0.0.1", port=1883):
     msgs = []
 
     def _message_callback(_client, _userdata, message):
@@ -41,7 +39,7 @@ def get_msgs_for_n_secs(topic, seconds, host=HOST):
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_message = _message_callback
     client.on_connect = _on_connect
-    client.connect(host)
+    client.connect(host, port)
     client.loop_start()
     time.sleep(seconds)
     client.loop_stop()
@@ -49,7 +47,7 @@ def get_msgs_for_n_secs(topic, seconds, host=HOST):
     return msgs
 
 
-def wipe_retained_msgs(host, namespace=None, seconds=3):
+def wipe_retained_msgs(host, port, namespace=None, seconds=3):
     def _message_callback(client, _userdata, message):
         if message.payload != b"":
             logger.debug("Wiping %s from %s", message.payload, message.topic)
@@ -63,7 +61,7 @@ def wipe_retained_msgs(host, namespace=None, seconds=3):
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_message = _message_callback
     client.on_connect = _on_connect
-    client.connect(host)
+    client.connect(host, port)
     client.loop_start()
     time.sleep(seconds)
     client.loop_stop()

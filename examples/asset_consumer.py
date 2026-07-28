@@ -12,21 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-Example for consumption of an Asset.
-Requires asset_provider.py to run!
+"""Example for consumption of an Asset.
 
+Requires asset_provider.py to be running!
 """
-import sys
-import time
 import logging
 import os
+import time
 
-p = os.path.abspath('.')
-sys.path.insert(1, p)
-from assets2036py import AssetManager  # noqa
-from assets2036py.exceptions import AssetNotFoundError  # noqa
-
+from assets2036py import AssetManager
+from assets2036py.exceptions import AssetNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -37,47 +32,46 @@ ENDPOINT = "assetconsumerexample"
 
 
 def on_light_switched_event(timestamp, state):
-    """callback for the "light_switched" event
-    Must have mandatory parameter to receive the timestamp and either **kwargs to collect all
-    keyworded parameters or every parameter described
-    in event specification with the exact same name
+    """Callback for the 'light_switched' event.
+
+    Must accept a timestamp and either **kwargs or the exact parameter names
+    from the event specification.
     """
-    logger.debug(
-        "Received an Event! At %s light has been switched to %s", timestamp, state)
+    logger.info("Event received: light switched to %s at %s", state, timestamp)
 
 
 def on_light_on_property_change(value):
-    """callback for property change
-    Must have one parameter to receive the new value
-    """
-    logger.debug("Property 'light_on' has changed to %s", value)
+    """Callback for property change notifications."""
+    logger.info("Property 'light_on' changed to %s", value)
 
 
 def main():
-    logger.debug("Connecting to Broker %s:%s", BROKER_URL, BROKER_PORT)
-    try:
-        mgr = AssetManager(BROKER_URL, BROKER_PORT, NAMESPACE, ENDPOINT)
-        lamp_1 = mgr.create_asset_proxy(NAMESPACE, "lamp_1")
-        # register callback for event "light_switched"
-        lamp_1.light.light_switched.on_event(on_light_switched_event)
+    logging.basicConfig(level=logging.DEBUG)
+    logger.info("Connecting to broker %s:%s", BROKER_URL, BROKER_PORT)
 
-        # register callback to get notified when property "light_on" changes
-        lamp_1.light.light_on.on_change(on_light_on_property_change)
+    with AssetManager(BROKER_URL, BROKER_PORT, NAMESPACE, ENDPOINT) as mgr:
+        try:
+            lamp = mgr.create_asset_proxy(NAMESPACE, "lamp_1")
+        except AssetNotFoundError:
+            logger.error("Asset 'lamp_1' not found. Is asset_provider.py running?")
+            return
 
+        lamp.light.light_switched.on_event(on_light_switched_event)
+        lamp.light.light_on.on_change(on_light_on_property_change)
+
+        logger.info("Connected to 'lamp_1'. Toggling light every second...")
         state = True
-        while True:
-            # call operation "switch_light"
-            lamp_1.light.switch_light(state=state)
-            state = not state
-            time.sleep(1)
-            # read property "light_on"
-            logger.debug("Property light_on has value %s",
-                         lamp_1.light.light_on.value)
-    except AssetNotFoundError:
-        logger.error(
-            "No asset of name 'lamp_1' found on broker. Did you start asset_provider.py?")
+        try:
+            while True:
+                lamp.light.switch_light(state=state)
+                state = not state
+                time.sleep(1)
+                logger.info("light_on = %s", lamp.light.light_on.value)
+        except KeyboardInterrupt:
+            pass
+
+    logger.info("Disconnected.")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
     main()
